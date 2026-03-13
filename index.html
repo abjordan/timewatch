@@ -284,6 +284,85 @@
 
   .action-btn.primary:hover { background: var(--accent-dim); }
 
+  .action-bar-secondary {
+    margin-top: 8px;
+  }
+
+  /* CSV Export Panel */
+  .csv-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    margin-top: 0;
+  }
+
+  .csv-panel.open {
+    max-height: 200px;
+    margin-top: 12px;
+  }
+
+  .csv-panel-inner {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .csv-presets {
+    display: flex;
+    gap: 6px;
+  }
+
+  .csv-preset-btn {
+    flex: 1;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+
+  .csv-preset-btn:hover {
+    background: var(--border);
+  }
+
+  .csv-range {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .csv-range label {
+    flex: 1;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .csv-range input[type="date"] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 5px 8px;
+    font-size: 0.8rem;
+  }
+
+  .csv-download-btn {
+    align-self: flex-end;
+    flex: none;
+    min-width: auto;
+    padding: 8px 20px;
+  }
+
   /* Inline rename input */
   .rename-input {
     background: var(--bg);
@@ -347,6 +426,26 @@
     <button class="action-btn primary" id="btn-add-task">+ Add Task</button>
     <button class="action-btn" id="btn-export-csv">Export CSV</button>
     <button class="action-btn" id="btn-copy-summary">Copy Summary</button>
+  </div>
+  <div class="action-bar action-bar-secondary">
+    <button class="action-btn" id="btn-backup">Backup Data</button>
+    <button class="action-btn" id="btn-restore">Restore Data</button>
+    <input type="file" id="restore-file-input" accept=".json" style="display:none">
+  </div>
+
+  <div class="csv-panel" id="csv-panel">
+    <div class="csv-panel-inner">
+      <div class="csv-presets">
+        <button class="csv-preset-btn" data-preset="today">Today</button>
+        <button class="csv-preset-btn" data-preset="week">This Week</button>
+        <button class="csv-preset-btn" data-preset="month">This Month</button>
+      </div>
+      <div class="csv-range">
+        <label>From <input type="date" id="csv-start"></label>
+        <label>To <input type="date" id="csv-end"></label>
+      </div>
+      <button class="action-btn primary csv-download-btn" id="btn-csv-download">Download</button>
+    </div>
   </div>
 </div>
 
@@ -723,35 +822,6 @@
 
   // --- Export ---
 
-  function exportCSV() {
-    var entries = getEntriesForDate(selectedDate);
-    if (entries.length === 0) {
-      showToast("No entries to export");
-      return;
-    }
-
-    var lines = ["Date,Task,Start,End,Hours"];
-    for (var i = 0; i < entries.length; i++) {
-      var e = entries[i];
-      var task = findTask(e.taskId);
-      var name = task ? task.name : "Deleted task";
-      var hours = entryHours(e).toFixed(2);
-      var startTime = new Date(e.start).toLocaleTimeString();
-      var endTime = new Date(e.end).toLocaleTimeString();
-      lines.push(e.date + ',"' + name.replace(/"/g, '""') + '",' + startTime + ',' + endTime + ',' + hours);
-    }
-
-    var csv = lines.join("\n");
-    var blob = new Blob([csv], { type: "text/csv" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "timewatch-" + selectedDate + ".csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("CSV downloaded");
-  }
-
   function copySummary() {
     var entries = getEntriesForDate(selectedDate);
     var active = getActiveTimer();
@@ -781,23 +851,166 @@
     }
 
     var total = 0;
-    var lines = [];
+    var rows = [];
     for (var j = 0; j < taskOrder.length; j++) {
       var tid = taskOrder[j];
       var task = findTask(tid);
       var name = task ? task.name : "Deleted task";
       var h = taskHours[tid];
       total += h;
-      lines.push(name + ": " + h.toFixed(2) + "h");
+      rows.push("| " + name + " | " + h.toFixed(2) + "h |");
     }
-    lines.push("Total: " + total.toFixed(2) + "h");
+    rows.push("| **Total** | **" + total.toFixed(2) + "h** |");
 
-    var text = lines.join("\n");
+    var dateLabel = formatDateDisplay(selectedDate);
+    var text = "**TimeWatch — " + dateLabel + "**\n\n" +
+      "| Task | Hours |\n" +
+      "|------|-------|\n" +
+      rows.join("\n");
+
     navigator.clipboard.writeText(text).then(function() {
       showToast("Summary copied to clipboard");
     }, function() {
       showToast("Failed to copy");
     });
+  }
+
+  // --- JSON Backup & Restore ---
+
+  function backupData() {
+    var envelope = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      app: "timewatch",
+      data: {
+        tasks: load(KEYS.tasks),
+        entries: load(KEYS.entries),
+        activeTimer: load(KEYS.activeTimer)
+      }
+    };
+    var json = JSON.stringify(envelope, null, 2);
+    var blob = new Blob([json], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "timewatch-backup-" + todayStr() + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Backup downloaded");
+  }
+
+  function restoreData() {
+    var input = document.getElementById("restore-file-input");
+    input.click();
+  }
+
+  function handleRestoreFile(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var data = JSON.parse(ev.target.result);
+        if (!data.version || data.app !== "timewatch" ||
+            !data.data || !data.data.tasks || !data.data.entries) {
+          showToast("Invalid backup file");
+          return;
+        }
+        // Auto-backup before replacing
+        backupData();
+        // Replace localStorage
+        save(KEYS.tasks, data.data.tasks);
+        save(KEYS.entries, data.data.entries);
+        save(KEYS.activeTimer, data.data.activeTimer || null);
+        render();
+        showToast("Data restored successfully");
+      } catch (err) {
+        showToast("Failed to restore: invalid file");
+      }
+    };
+    reader.readAsText(file);
+    // Reset so the same file can be selected again
+    e.target.value = "";
+  }
+
+  // --- Date Range CSV Export ---
+
+  function getEntriesForRange(startDate, endDate) {
+    return getEntries().filter(function(e) {
+      return e.date >= startDate && e.date <= endDate;
+    });
+  }
+
+  function exportCSVRange(startDate, endDate) {
+    var entries = getEntriesForRange(startDate, endDate);
+    if (entries.length === 0) {
+      showToast("No entries in selected range");
+      return;
+    }
+
+    var lines = ["Date,Task,Start,End,Hours"];
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var task = findTask(e.taskId);
+      var name = task ? task.name : "Deleted task";
+      var hours = entryHours(e).toFixed(2);
+      var startTime = new Date(e.start).toLocaleTimeString();
+      var endTime = new Date(e.end).toLocaleTimeString();
+      lines.push(e.date + ',"' + name.replace(/"/g, '""') + '",' + startTime + ',' + endTime + ',' + hours);
+    }
+
+    var csv = lines.join("\n");
+    var blob = new Blob([csv], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    var filename = startDate === endDate
+      ? "timewatch-" + startDate + ".csv"
+      : "timewatch-" + startDate + "-to-" + endDate + ".csv";
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("CSV downloaded");
+  }
+
+  function toggleCSVPanel() {
+    var panel = document.getElementById("csv-panel");
+    panel.classList.toggle("open");
+  }
+
+  function setCSVPreset(preset) {
+    var today = todayStr();
+    var startInput = document.getElementById("csv-start");
+    var endInput = document.getElementById("csv-end");
+
+    if (preset === "today") {
+      startInput.value = today;
+      endInput.value = today;
+    } else if (preset === "week") {
+      var d = new Date(today + "T12:00:00");
+      var day = d.getDay();
+      var diff = day === 0 ? 6 : day - 1; // Monday start
+      startInput.value = shiftDate(today, -diff);
+      endInput.value = today;
+    } else if (preset === "month") {
+      startInput.value = today.slice(0, 8) + "01";
+      endInput.value = today;
+    }
+  }
+
+  function downloadCSVRange() {
+    var startDate = document.getElementById("csv-start").value;
+    var endDate = document.getElementById("csv-end").value;
+    if (!startDate || !endDate) {
+      showToast("Select start and end dates");
+      return;
+    }
+    if (startDate > endDate) {
+      showToast("Start date must be before end date");
+      return;
+    }
+    exportCSVRange(startDate, endDate);
   }
 
   // --- Event wiring ---
@@ -851,8 +1064,19 @@
 
   // Action bar
   document.getElementById("btn-add-task").addEventListener("click", promptAddTask);
-  document.getElementById("btn-export-csv").addEventListener("click", exportCSV);
+  document.getElementById("btn-export-csv").addEventListener("click", toggleCSVPanel);
   document.getElementById("btn-copy-summary").addEventListener("click", copySummary);
+  document.getElementById("btn-backup").addEventListener("click", backupData);
+  document.getElementById("btn-restore").addEventListener("click", restoreData);
+  document.getElementById("restore-file-input").addEventListener("change", handleRestoreFile);
+  document.getElementById("btn-csv-download").addEventListener("click", downloadCSVRange);
+
+  // CSV preset buttons
+  document.querySelectorAll(".csv-preset-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      setCSVPreset(btn.dataset.preset);
+    });
+  });
 
   // --- Initialization ---
 
