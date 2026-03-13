@@ -327,37 +327,114 @@
     renderTally();
   }
 
+  // --- Modal dialog system ---
+
+  function openModal(options, callback) {
+    var overlay     = document.getElementById("modal-overlay");
+    var titleEl     = document.getElementById("modal-title");
+    var messageEl   = document.getElementById("modal-message");
+    var inputEl     = document.getElementById("modal-input");
+    var confirmBtn  = document.getElementById("modal-confirm");
+    var cancelBtn   = document.getElementById("modal-cancel");
+
+    titleEl.textContent   = options.title   || "";
+    messageEl.textContent = options.message || "";
+    confirmBtn.textContent = options.confirmLabel || "OK";
+    confirmBtn.className = "action-btn " + (options.danger ? "danger" : "primary");
+
+    var isPrompt = options.type === "prompt";
+    inputEl.style.display = isPrompt ? "block" : "none";
+    if (isPrompt) {
+      inputEl.value = options.defaultValue || "";
+    }
+
+    overlay.classList.add("open");
+
+    if (isPrompt) {
+      inputEl.focus();
+      inputEl.select();
+    } else {
+      confirmBtn.focus();
+    }
+
+    function close(result) {
+      overlay.classList.remove("open");
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onOverlayClick);
+      document.removeEventListener("keydown", onKeydown);
+      callback(result);
+    }
+
+    function onConfirm() {
+      close(isPrompt ? inputEl.value : true);
+    }
+
+    function onCancel() {
+      close(null);
+    }
+
+    function onOverlayClick(e) {
+      if (e.target === overlay) close(null);
+    }
+
+    function onKeydown(e) {
+      if (e.key === "Escape") { e.preventDefault(); close(null); }
+      if (e.key === "Enter")  { e.preventDefault(); onConfirm(); }
+    }
+
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onOverlayClick);
+    document.addEventListener("keydown", onKeydown);
+  }
+
   // --- Task management UI ---
 
   function promptAddTask() {
-    var name = prompt("Task name:");
-    if (name && name.trim()) {
-      addTask(name);
-      render();
-    }
+    openModal({ type: "prompt", title: "New Task", message: "Task name:" }, function(name) {
+      if (name && name.trim()) {
+        addTask(name);
+        render();
+      }
+    });
   }
 
   function promptRenameTask(taskId) {
     var task = findTask(taskId);
     if (!task) return;
-    var name = prompt("Rename task:", task.name);
-    if (name && name.trim() && name.trim() !== task.name) {
-      renameTask(taskId, name);
-      render();
-    }
+    openModal({
+      type: "prompt",
+      title: "Rename Task",
+      message: "New name for \"" + task.name + "\":",
+      defaultValue: task.name
+    }, function(name) {
+      if (name && name.trim() && name.trim() !== task.name) {
+        renameTask(taskId, name);
+        render();
+      }
+    });
   }
 
   function confirmRemoveTask(taskId) {
     var task = findTask(taskId);
     if (!task) return;
-    if (confirm('Remove task "' + task.name + '"?\n\nHistorical entries will be kept.')) {
-      var active = getActiveTimer();
-      if (active && active.taskId === taskId) {
-        stopTimer();
+    openModal({
+      type: "confirm",
+      title: "Remove Task",
+      message: "Remove \"" + task.name + "\"? Historical entries will be kept.",
+      confirmLabel: "Remove",
+      danger: true
+    }, function(confirmed) {
+      if (confirmed) {
+        var active = getActiveTimer();
+        if (active && active.taskId === taskId) {
+          stopTimer();
+        }
+        removeTask(taskId);
+        render();
       }
-      removeTask(taskId);
-      render();
-    }
+    });
   }
 
   // --- Export: Copy Summary ---

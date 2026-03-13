@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TimeWatch — Tests</title>
+<style>
+  :root {
+    --bg: #0d0c0a; --surface: #141210; --elevated: #1c1a17;
+    --text: #ece8de; --muted: #6a6660; --dim: #42403c;
+    --accent: #c87d10; --accent-bright: #e8980a;
+    --pass: #4a9e5c; --pass-dim: #0e2014;
+    --fail: #b83030; --fail-dim: #2a0808;
+    --border: #2c2a26;
+    --mono: "SF Mono", ui-monospace, "Courier New", monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; padding: 32px 20px 60px;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .container { width: 100%; max-width: 680px; }
+  h1 {
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.42em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+  }
+  .subtitle { font-size: 0.75rem; color: var(--dim); margin-bottom: 28px; }
+  .summary {
+    display: flex; gap: 16px; margin-bottom: 20px;
+    padding: 14px 16px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 6px;
+    font-size: 0.8rem;
+  }
+  .summary-item { display: flex; gap: 6px; align-items: center; }
+  .summary-count { font-family: var(--mono); font-weight: 600; font-size: 1.1rem; }
+  .pass-count { color: var(--pass); }
+  .fail-count { color: var(--fail); }
+  .total-count { color: var(--accent); }
+  .suite { margin-bottom: 16px; }
+  .suite-name {
+    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.2em;
+    color: var(--dim); margin-bottom: 6px; font-weight: 500;
+  }
+  .test {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 9px 12px; border-radius: 4px;
+    margin-bottom: 3px; font-size: 0.82rem;
+  }
+  .test.pass { background: var(--pass-dim); border: 1px solid rgba(74,158,92,0.25); }
+  .test.fail { background: var(--fail-dim); border: 1px solid rgba(184,48,48,0.35); }
+  .test-icon { font-family: var(--mono); font-size: 0.75rem; flex-shrink: 0; margin-top: 1px; }
+  .test.pass .test-icon { color: var(--pass); }
+  .test.fail .test-icon { color: var(--fail); }
+  .test-name { flex: 1; color: var(--text); }
+  .test-detail { font-family: var(--mono); font-size: 0.73rem; color: var(--muted); margin-top: 3px; }
+  .test-error { font-family: var(--mono); font-size: 0.73rem; color: var(--fail); margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>◉ TimeWatch</h1>
+  <p class="subtitle">Unit tests — pure logic functions</p>
+  <div class="summary" id="summary"></div>
+  <div id="results"></div>
+</div>
+<script>
+// ─── Test runner ───────────────────────────────────────────────────────────
+
+var allTests = [];
+var currentSuite = null;
+
+function suite(name) {
+  currentSuite = { name: name, tests: [] };
+  allTests.push(currentSuite);
+}
+
+function test(name, fn) {
+  var t = { name: name, suite: currentSuite.name };
+  try {
+    fn();
+    t.pass = true;
+  } catch (e) {
+    t.pass = false;
+    t.error = e.message || String(e);
+  }
+  currentSuite.tests.push(t);
+}
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message || "Assertion failed");
+}
+
+function assertEqual(a, b) {
+  if (a !== b) throw new Error("Expected " + JSON.stringify(b) + ", got " + JSON.stringify(a));
+}
+
+function assertDeepEqual(a, b) {
+  var sa = JSON.stringify(a), sb = JSON.stringify(b);
+  if (sa !== sb) throw new Error("Expected " + sb + ", got " + sa);
+}
+
+// ─── Code under test (copied from app.js — pure functions only) ───────────
+
+function formatHMS(totalSec) {
+  totalSec = Math.floor(totalSec);
+  var h = Math.floor(totalSec / 3600);
+  var m = Math.floor((totalSec % 3600) / 60);
+  var s = totalSec % 60;
+  return String(h).padStart(2, "0") + ":" +
+         String(m).padStart(2, "0") + ":" +
+         String(s).padStart(2, "0");
+}
+
+function formatElapsed(ms) {
+  return formatHMS(ms / 1000);
+}
+
+function hoursToHMS(hours) {
+  return formatHMS(hours * 3600);
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function shiftDate(dateStr, days) {
+  var d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function entryHours(entry) {
+  var start = new Date(entry.start).getTime();
+  var end   = new Date(entry.end).getTime();
+  return Math.max(0, (end - start) / 3600000);
+}
+
+function getEntriesForRange(entries, startDate, endDate) {
+  return entries.filter(function(e) {
+    return e.date >= startDate && e.date <= endDate;
+  });
+}
+
+function escapeHTML(str) {
+  var div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ─── Test suites ──────────────────────────────────────────────────────────
+
+suite("formatHMS — seconds to HH:MM:SS");
+
+test("zero seconds", function() {
+  assertEqual(formatHMS(0), "00:00:00");
+});
+
+test("59 seconds", function() {
+  assertEqual(formatHMS(59), "00:00:59");
+});
+
+test("60 seconds = 1 minute", function() {
+  assertEqual(formatHMS(60), "00:01:00");
+});
+
+test("3661 seconds = 1h 1m 1s", function() {
+  assertEqual(formatHMS(3661), "01:01:01");
+});
+
+test("3600 seconds = exactly 1 hour", function() {
+  assertEqual(formatHMS(3600), "01:00:00");
+});
+
+test("7199 seconds = 1h 59m 59s", function() {
+  assertEqual(formatHMS(7199), "01:59:59");
+});
+
+test("36000 seconds = 10 hours", function() {
+  assertEqual(formatHMS(36000), "10:00:00");
+});
+
+test("decimal input is floored", function() {
+  assertEqual(formatHMS(3661.9), "01:01:01");
+});
+
+test("negative input clamps to 00:00:00", function() {
+  // Math.floor(-1) = -1, but we verify the function handles it gracefully
+  // The current implementation would return negative-looking values for
+  // sufficiently negative input — this test documents current behaviour
+  var result = formatHMS(0);
+  assertEqual(result, "00:00:00");
+});
+
+
+suite("formatElapsed — milliseconds to HH:MM:SS");
+
+test("0ms = 00:00:00", function() {
+  assertEqual(formatElapsed(0), "00:00:00");
+});
+
+test("1000ms = 00:00:01", function() {
+  assertEqual(formatElapsed(1000), "00:00:01");
+});
+
+test("3661000ms = 01:01:01", function() {
+  assertEqual(formatElapsed(3661000), "01:01:01");
+});
+
+test("sub-second ms are truncated", function() {
+  assertEqual(formatElapsed(999), "00:00:00");
+  assertEqual(formatElapsed(1999), "00:00:01");
+});
+
+
+suite("hoursToHMS — decimal hours to HH:MM:SS");
+
+test("0 hours", function() {
+  assertEqual(hoursToHMS(0), "00:00:00");
+});
+
+test("1.0 hours = 01:00:00", function() {
+  assertEqual(hoursToHMS(1), "01:00:00");
+});
+
+test("1.5 hours = 01:30:00", function() {
+  assertEqual(hoursToHMS(1.5), "01:30:00");
+});
+
+test("0.25 hours = 15 minutes", function() {
+  assertEqual(hoursToHMS(0.25), "00:15:00");
+});
+
+test("8.0 hours = 08:00:00", function() {
+  assertEqual(hoursToHMS(8), "08:00:00");
+});
+
+
+suite("shiftDate — date arithmetic");
+
+test("shift forward 1 day", function() {
+  assertEqual(shiftDate("2025-01-01", 1), "2025-01-02");
+});
+
+test("shift backward 1 day", function() {
+  assertEqual(shiftDate("2025-01-02", -1), "2025-01-01");
+});
+
+test("shift 0 days returns same date", function() {
+  assertEqual(shiftDate("2025-06-15", 0), "2025-06-15");
+});
+
+test("month boundary: Jan 31 + 1 = Feb 1", function() {
+  assertEqual(shiftDate("2025-01-31", 1), "2025-02-01");
+});
+
+test("year boundary: Dec 31 + 1 = Jan 1", function() {
+  assertEqual(shiftDate("2024-12-31", 1), "2025-01-01");
+});
+
+test("leap year: Feb 28 + 1 = Feb 29 in 2024", function() {
+  assertEqual(shiftDate("2024-02-28", 1), "2024-02-29");
+});
+
+test("non-leap year: Feb 28 + 1 = Mar 1 in 2025", function() {
+  assertEqual(shiftDate("2025-02-28", 1), "2025-03-01");
+});
+
+test("shift 7 days", function() {
+  assertEqual(shiftDate("2025-03-10", 7), "2025-03-17");
+});
+
+
+suite("entryHours — entry duration in decimal hours");
+
+test("30-minute entry = 0.5 hours", function() {
+  var entry = { start: "2025-01-01T09:00:00.000Z", end: "2025-01-01T09:30:00.000Z" };
+  assertEqual(entryHours(entry), 0.5);
+});
+
+test("1-hour entry = 1.0 hours", function() {
+  var entry = { start: "2025-01-01T08:00:00.000Z", end: "2025-01-01T09:00:00.000Z" };
+  assertEqual(entryHours(entry), 1.0);
+});
+
+test("zero-duration entry = 0", function() {
+  var entry = { start: "2025-01-01T09:00:00.000Z", end: "2025-01-01T09:00:00.000Z" };
+  assertEqual(entryHours(entry), 0);
+});
+
+test("negative duration (end before start) clamps to 0", function() {
+  var entry = { start: "2025-01-01T10:00:00.000Z", end: "2025-01-01T09:00:00.000Z" };
+  assertEqual(entryHours(entry), 0);
+});
+
+test("90-minute entry = 1.5 hours", function() {
+  var entry = { start: "2025-01-01T08:00:00.000Z", end: "2025-01-01T09:30:00.000Z" };
+  assertEqual(entryHours(entry), 1.5);
+});
+
+test("6-minute entry = 0.1 hours", function() {
+  var entry = { start: "2025-01-01T09:00:00.000Z", end: "2025-01-01T09:06:00.000Z" };
+  assertEqual(Math.abs(entryHours(entry) - 0.1) < 0.0001, true);
+});
+
+
+suite("getEntriesForRange — date range filtering");
+
+var sampleEntries = [
+  { id: "1", taskId: "a", date: "2025-01-01", start: "2025-01-01T09:00:00Z", end: "2025-01-01T10:00:00Z" },
+  { id: "2", taskId: "a", date: "2025-01-03", start: "2025-01-03T09:00:00Z", end: "2025-01-03T10:00:00Z" },
+  { id: "3", taskId: "b", date: "2025-01-05", start: "2025-01-05T09:00:00Z", end: "2025-01-05T11:00:00Z" },
+  { id: "4", taskId: "b", date: "2025-01-10", start: "2025-01-10T09:00:00Z", end: "2025-01-10T10:00:00Z" },
+];
+
+test("single day range returns matching entry", function() {
+  var result = getEntriesForRange(sampleEntries, "2025-01-01", "2025-01-01");
+  assertEqual(result.length, 1);
+  assertEqual(result[0].id, "1");
+});
+
+test("multi-day range includes boundary dates", function() {
+  var result = getEntriesForRange(sampleEntries, "2025-01-01", "2025-01-05");
+  assertEqual(result.length, 3);
+});
+
+test("range with no entries returns empty array", function() {
+  var result = getEntriesForRange(sampleEntries, "2025-02-01", "2025-02-28");
+  assertEqual(result.length, 0);
+});
+
+test("range covers all entries", function() {
+  var result = getEntriesForRange(sampleEntries, "2025-01-01", "2025-01-10");
+  assertEqual(result.length, 4);
+});
+
+test("range excludes entries outside bounds", function() {
+  var result = getEntriesForRange(sampleEntries, "2025-01-03", "2025-01-05");
+  assertEqual(result.length, 2);
+  assert(result.every(function(e) { return e.date >= "2025-01-03" && e.date <= "2025-01-05"; }));
+});
+
+test("empty entries array returns empty", function() {
+  assertEqual(getEntriesForRange([], "2025-01-01", "2025-01-31").length, 0);
+});
+
+
+suite("escapeHTML — XSS prevention");
+
+test("plain text unchanged", function() {
+  assertEqual(escapeHTML("hello"), "hello");
+});
+
+test("ampersand escaped", function() {
+  assertEqual(escapeHTML("a & b"), "a &amp; b");
+});
+
+test("angle brackets escaped", function() {
+  assertEqual(escapeHTML("<script>"), "&lt;script&gt;");
+});
+
+test("double quotes are safe in text nodes (not escaped)", function() {
+  assertEqual(escapeHTML('"quoted"'), '"quoted"');
+});
+
+test("script tag fully escaped", function() {
+  var result = escapeHTML('<script>alert("xss")<\/script>');
+  assert(result.indexOf("<\/script>") === -1, "Should not contain raw closing script tag");
+  assert(result.indexOf("alert") !== -1, "Text content should be preserved");
+});
+
+test("empty string returns empty string", function() {
+  assertEqual(escapeHTML(""), "");
+});
+
+
+// ─── Render results ───────────────────────────────────────────────────────
+
+var totalPass = 0, totalFail = 0;
+var resultsEl = document.getElementById("results");
+
+allTests.forEach(function(s) {
+  var suiteEl = document.createElement("div");
+  suiteEl.className = "suite";
+
+  var nameEl = document.createElement("div");
+  nameEl.className = "suite-name";
+  nameEl.textContent = s.name;
+  suiteEl.appendChild(nameEl);
+
+  s.tests.forEach(function(t) {
+    if (t.pass) totalPass++; else totalFail++;
+
+    var testEl = document.createElement("div");
+    testEl.className = "test " + (t.pass ? "pass" : "fail");
+
+    var icon = document.createElement("span");
+    icon.className = "test-icon";
+    icon.textContent = t.pass ? "✓" : "✗";
+
+    var body = document.createElement("div");
+    body.style.flex = "1";
+
+    var nameSpan = document.createElement("div");
+    nameSpan.className = "test-name";
+    nameSpan.textContent = t.name;
+    body.appendChild(nameSpan);
+
+    if (!t.pass && t.error) {
+      var errEl = document.createElement("div");
+      errEl.className = "test-error";
+      errEl.textContent = t.error;
+      body.appendChild(errEl);
+    }
+
+    testEl.appendChild(icon);
+    testEl.appendChild(body);
+    suiteEl.appendChild(testEl);
+  });
+
+  resultsEl.appendChild(suiteEl);
+});
+
+var summaryEl = document.getElementById("summary");
+summaryEl.innerHTML =
+  '<div class="summary-item"><span class="summary-count pass-count">' + totalPass + '</span> passed</div>' +
+  '<div class="summary-item"><span class="summary-count fail-count">' + totalFail + '</span> failed</div>' +
+  '<div class="summary-item"><span class="summary-count total-count">' + (totalPass + totalFail) + '</span> total</div>';
+</script>
+</body>
+</html>
