@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TimeWatch</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --bg-surface: #222240;
+    --bg-elevated: #2a2a4a;
+    --text: #e0e0e0;
+    --text-muted: #8888aa;
+    --accent: #4fc3f7;
+    --accent-dim: #2a6f8f;
+    --active: #00e676;
+    --active-dim: #1b5e20;
+    --danger: #ef5350;
+    --border: #3a3a5c;
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 640px;
+    padding: 16px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  .date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .date-nav button {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .date-nav button:hover { background: var(--border); }
+
+  .date-nav .date-display {
+    font-size: 1rem;
+    color: var(--text);
+    min-width: 140px;
+    text-align: center;
+  }
+
+  .date-nav .today-btn {
+    width: auto;
+    padding: 0 12px;
+    font-size: 0.8rem;
+    color: var(--accent);
+    border-color: var(--accent-dim);
+  }
+
+  .date-nav .today-btn:hover { background: var(--accent-dim); }
+  .date-nav .today-btn.hidden { visibility: hidden; }
+
+  /* Running Timer Display */
+  .timer-display {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+    margin-bottom: 20px;
+    min-height: 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .timer-display.active {
+    border-color: var(--active-dim);
+    box-shadow: 0 0 12px rgba(0, 230, 118, 0.1);
+  }
+
+  .timer-display .timer-task {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .timer-display.active .timer-task { color: var(--active); }
+
+  .timer-display .timer-time {
+    font-size: 2rem;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  .timer-display .timer-idle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+
+  /* Task Grid */
+  .task-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .task-btn {
+    position: relative;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 14px 12px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-align: center;
+    transition: background 0.15s, border-color 0.15s;
+    word-break: break-word;
+  }
+
+  .task-btn:hover {
+    background: var(--border);
+  }
+
+  .task-btn.active {
+    background: var(--active-dim);
+    border-color: var(--active);
+    color: var(--active);
+    font-weight: 600;
+  }
+
+  .task-btn .task-remove {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    line-height: 1;
+  }
+
+  .task-btn:hover .task-remove { opacity: 1; }
+  .task-btn .task-remove:hover { color: var(--danger); }
+
+  .task-btn-add {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-muted);
+    font-size: 1.2rem;
+  }
+
+  .task-btn-add:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: transparent;
+  }
+
+  /* Tally Table */
+  .tally-section {
+    margin-bottom: 20px;
+  }
+
+  .tally-section h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .tally-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-surface);
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .tally-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+
+  .tally-table tr:last-child td { border-bottom: none; }
+
+  .tally-table .task-name { color: var(--text); }
+
+  .tally-table .task-hours {
+    text-align: right;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    cursor: help;
+  }
+
+  .tally-table .total-row td {
+    font-weight: 600;
+    border-top: 2px solid var(--border);
+    color: var(--accent);
+  }
+
+  .tally-table .total-row .task-name { color: var(--text); }
+
+  .tally-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 24px;
+    font-size: 0.9rem;
+    background: var(--bg-surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  /* Action Bar */
+  .action-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    flex: 1;
+    min-width: 120px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.15s;
+  }
+
+  .action-btn:hover { background: var(--border); }
+
+  .action-btn.primary {
+    border-color: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .action-btn.primary:hover { background: var(--accent-dim); }
+
+  /* Inline rename input */
+  .rename-input {
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.9rem;
+    width: 100%;
+    outline: none;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    opacity: 0;
+    transition: transform 0.3s, opacity 0.3s;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>TimeWatch</h1>
+    <div class="date-nav">
+      <button id="date-prev" title="Previous day">&larr;</button>
+      <span class="date-display" id="date-display"></span>
+      <button id="date-next" title="Next day">&rarr;</button>
+      <button class="today-btn" id="date-today" title="Go to today">Today</button>
+    </div>
+  </div>
+
+  <div class="timer-display" id="timer-display">
+    <span class="timer-idle">Click a task to start tracking</span>
+  </div>
+
+  <div class="task-grid" id="task-grid"></div>
+
+  <div class="tally-section">
+    <h2>Time Summary</h2>
+    <div id="tally-content"></div>
+  </div>
+
+  <div class="action-bar">
+    <button class="action-btn primary" id="btn-add-task">+ Add Task</button>
+    <button class="action-btn" id="btn-export-csv">Export CSV</button>
+    <button class="action-btn" id="btn-copy-summary">Copy Summary</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  "use strict";
+
+  // --- Storage helpers ---
+
+  function load(key) {
+    try {
+      var raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function save(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+
+  var KEYS = {
+    tasks: "timewatch_tasks",
+    entries: "timewatch_entries",
+    activeTimer: "timewatch_activeTimer"
+  };
+
+  // --- UUID ---
+
+  function uuid() {
+    return crypto.randomUUID ? crypto.randomUUID() :
+      "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0;
+        return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+  }
+
+  // --- Date helpers ---
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function formatDateDisplay(dateStr) {
+    var d = new Date(dateStr + "T12:00:00");
+    var opts = { weekday: "short", month: "short", day: "numeric" };
+    return d.toLocaleDateString(undefined, opts);
+  }
+
+  function shiftDate(dateStr, days) {
+    var d = new Date(dateStr + "T12:00:00");
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // --- Data layer ---
+
+  function getTasks() {
+    return load(KEYS.tasks) || [];
+  }
+
+  function saveTasks(tasks) {
+    save(KEYS.tasks, tasks);
+  }
+
+  function getEntries() {
+    return load(KEYS.entries) || [];
+  }
+
+  function saveEntries(entries) {
+    save(KEYS.entries, entries);
+  }
+
+  function getActiveTimer() {
+    return load(KEYS.activeTimer);
+  }
+
+  function saveActiveTimer(timer) {
+    save(KEYS.activeTimer, timer);
+  }
+
+  function addTask(name) {
+    var tasks = getTasks();
+    var task = { id: uuid(), name: name.trim(), createdAt: new Date().toISOString() };
+    tasks.push(task);
+    saveTasks(tasks);
+    return task;
+  }
+
+  function renameTask(taskId, newName) {
+    var tasks = getTasks();
+    for (var i = 0; i < tasks.length; i++) {
+      if (tasks[i].id === taskId) {
+        tasks[i].name = newName.trim();
+        break;
+      }
+    }
+    saveTasks(tasks);
+  }
+
+  function removeTask(taskId) {
+    var tasks = getTasks().filter(function(t) { return t.id !== taskId; });
+    saveTasks(tasks);
+    // Stop timer if it's on this task
+    var active = getActiveTimer();
+    if (active && active.taskId === taskId) {
+      stopTimer();
+    }
+  }
+
+  function findTask(taskId) {
+    var tasks = getTasks();
+    for (var i = 0; i < tasks.length; i++) {
+      if (tasks[i].id === taskId) return tasks[i];
+    }
+    return null;
+  }
+
+  function recordEntry(taskId, startISO, endISO) {
+    var entries = getEntries();
+    var date = startISO.slice(0, 10);
+    entries.push({
+      id: uuid(),
+      taskId: taskId,
+      start: startISO,
+      end: endISO,
+      date: date
+    });
+    saveEntries(entries);
+  }
+
+  function getEntriesForDate(dateStr) {
+    return getEntries().filter(function(e) { return e.date === dateStr; });
+  }
+
+  function entryHours(entry) {
+    var start = new Date(entry.start).getTime();
+    var end = new Date(entry.end).getTime();
+    return Math.max(0, (end - start) / 3600000);
+  }
+
+  // --- Timer logic ---
+
+  var timerInterval = null;
+
+  function startTimer(taskId) {
+    // If another timer is running, stop it first
+    var active = getActiveTimer();
+    if (active) {
+      var now = new Date().toISOString();
+      recordEntry(active.taskId, active.start, now);
+    }
+
+    var timer = { taskId: taskId, start: new Date().toISOString() };
+    saveActiveTimer(timer);
+    startTimerDisplay();
+    render();
+  }
+
+  function stopTimer() {
+    var active = getActiveTimer();
+    if (!active) return;
+    var now = new Date().toISOString();
+    recordEntry(active.taskId, active.start, now);
+    saveActiveTimer(null);
+    stopTimerDisplay();
+    render();
+  }
+
+  function toggleTimer(taskId) {
+    var active = getActiveTimer();
+    if (active && active.taskId === taskId) {
+      stopTimer();
+    } else {
+      startTimer(taskId);
+    }
+  }
+
+  // --- Timer display ---
+
+  function formatHMS(totalSec) {
+    totalSec = Math.floor(totalSec);
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    var s = totalSec % 60;
+    return String(h).padStart(2, "0") + ":" +
+           String(m).padStart(2, "0") + ":" +
+           String(s).padStart(2, "0");
+  }
+
+  function formatElapsed(ms) {
+    return formatHMS(ms / 1000);
+  }
+
+  function hoursToHMS(hours) {
+    return formatHMS(hours * 3600);
+  }
+
+  function updateTimerDisplay() {
+    var el = document.getElementById("timer-display");
+    var active = getActiveTimer();
+    if (!active) {
+      el.classList.remove("active");
+      el.innerHTML = '<span class="timer-idle">Click a task to start tracking</span>';
+      return;
+    }
+    var task = findTask(active.taskId);
+    var name = task ? task.name : "Unknown";
+    var elapsed = Date.now() - new Date(active.start).getTime();
+    var hours = (elapsed / 3600000).toFixed(2);
+    el.classList.add("active");
+    el.innerHTML =
+      '<span class="timer-task">' + escapeHTML(name) + '</span>' +
+      '<span class="timer-time">' + formatElapsed(elapsed) + ' (' + hours + 'h)</span>';
+  }
+
+  function startTimerDisplay() {
+    stopTimerDisplay();
+    updateTimerDisplay();
+    timerInterval = setInterval(updateTimerDisplay, 1000);
+  }
+
+  function stopTimerDisplay() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    updateTimerDisplay();
+  }
+
+  // --- UI State ---
+
+  var selectedDate = todayStr();
+
+  function isToday() {
+    return selectedDate === todayStr();
+  }
+
+  // --- Rendering ---
+
+  function escapeHTML(str) {
+    var div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderTaskGrid() {
+    var grid = document.getElementById("task-grid");
+    var tasks = getTasks();
+    var active = getActiveTimer();
+    var html = "";
+
+    for (var i = 0; i < tasks.length; i++) {
+      var t = tasks[i];
+      var isActive = active && active.taskId === t.id;
+      html += '<button class="task-btn' + (isActive ? " active" : "") + '" ' +
+              'data-task-id="' + t.id + '">' +
+              '<span class="task-remove" data-remove-id="' + t.id + '" title="Remove task">&times;</span>' +
+              escapeHTML(t.name) +
+              '</button>';
+    }
+
+    html += '<button class="task-btn task-btn-add" id="grid-add-task" title="Add task">+</button>';
+    grid.innerHTML = html;
+  }
+
+  function renderTally() {
+    var container = document.getElementById("tally-content");
+    var entries = getEntriesForDate(selectedDate);
+    var active = getActiveTimer();
+
+    // Aggregate hours by task
+    var taskHours = {};
+    var taskOrder = [];
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!taskHours[e.taskId]) {
+        taskHours[e.taskId] = 0;
+        taskOrder.push(e.taskId);
+      }
+      taskHours[e.taskId] += entryHours(e);
+    }
+
+    // Include running timer if it's for the selected date
+    if (active && active.start.slice(0, 10) === selectedDate) {
+      if (!taskHours[active.taskId]) {
+        taskHours[active.taskId] = 0;
+        taskOrder.push(active.taskId);
+      }
+      taskHours[active.taskId] += (Date.now() - new Date(active.start).getTime()) / 3600000;
+    }
+
+    if (taskOrder.length === 0) {
+      container.innerHTML = '<div class="tally-empty">No time entries for this day</div>';
+      return;
+    }
+
+    var total = 0;
+    var rows = "";
+    for (var j = 0; j < taskOrder.length; j++) {
+      var tid = taskOrder[j];
+      var task = findTask(tid);
+      var name = task ? task.name : "Deleted task";
+      var h = taskHours[tid];
+      total += h;
+      rows += '<tr><td class="task-name">' + escapeHTML(name) + '</td>' +
+              '<td class="task-hours" title="' + hoursToHMS(h) + '">' + h.toFixed(2) + 'h</td></tr>';
+    }
+
+    rows += '<tr class="total-row"><td class="task-name">Total</td>' +
+            '<td class="task-hours" title="' + hoursToHMS(total) + '">' + total.toFixed(2) + 'h</td></tr>';
+
+    container.innerHTML = '<table class="tally-table">' + rows + '</table>';
+  }
+
+  function renderDateNav() {
+    document.getElementById("date-display").textContent = formatDateDisplay(selectedDate);
+    var todayBtn = document.getElementById("date-today");
+    todayBtn.classList.toggle("hidden", isToday());
+  }
+
+  function render() {
+    renderDateNav();
+    renderTaskGrid();
+    renderTally();
+  }
+
+  // --- Toast ---
+
+  var toastTimeout = null;
+
+  function showToast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(function() {
+      el.classList.remove("show");
+    }, 2000);
+  }
+
+  // --- Task management UI ---
+
+  function promptAddTask() {
+    var name = prompt("Task name:");
+    if (name && name.trim()) {
+      addTask(name);
+      render();
+    }
+  }
+
+  function promptRenameTask(taskId) {
+    var task = findTask(taskId);
+    if (!task) return;
+    var name = prompt("Rename task:", task.name);
+    if (name && name.trim() && name.trim() !== task.name) {
+      renameTask(taskId, name);
+      render();
+    }
+  }
+
+  function confirmRemoveTask(taskId) {
+    var task = findTask(taskId);
+    if (!task) return;
+    if (confirm('Remove task "' + task.name + '"?\n\nHistorical entries will be kept.')) {
+      removeTask(taskId);
+      render();
+    }
+  }
+
+  // --- Export ---
+
+  function exportCSV() {
+    var entries = getEntriesForDate(selectedDate);
+    if (entries.length === 0) {
+      showToast("No entries to export");
+      return;
+    }
+
+    var lines = ["Date,Task,Start,End,Hours"];
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var task = findTask(e.taskId);
+      var name = task ? task.name : "Deleted task";
+      var hours = entryHours(e).toFixed(2);
+      var startTime = new Date(e.start).toLocaleTimeString();
+      var endTime = new Date(e.end).toLocaleTimeString();
+      lines.push(e.date + ',"' + name.replace(/"/g, '""') + '",' + startTime + ',' + endTime + ',' + hours);
+    }
+
+    var csv = lines.join("\n");
+    var blob = new Blob([csv], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "timewatch-" + selectedDate + ".csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("CSV downloaded");
+  }
+
+  function copySummary() {
+    var entries = getEntriesForDate(selectedDate);
+    var active = getActiveTimer();
+    var taskHours = {};
+    var taskOrder = [];
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!taskHours[e.taskId]) {
+        taskHours[e.taskId] = 0;
+        taskOrder.push(e.taskId);
+      }
+      taskHours[e.taskId] += entryHours(e);
+    }
+
+    if (active && active.start.slice(0, 10) === selectedDate) {
+      if (!taskHours[active.taskId]) {
+        taskHours[active.taskId] = 0;
+        taskOrder.push(active.taskId);
+      }
+      taskHours[active.taskId] += (Date.now() - new Date(active.start).getTime()) / 3600000;
+    }
+
+    if (taskOrder.length === 0) {
+      showToast("No entries to copy");
+      return;
+    }
+
+    var total = 0;
+    var lines = [];
+    for (var j = 0; j < taskOrder.length; j++) {
+      var tid = taskOrder[j];
+      var task = findTask(tid);
+      var name = task ? task.name : "Deleted task";
+      var h = taskHours[tid];
+      total += h;
+      lines.push(name + ": " + h.toFixed(2) + "h");
+    }
+    lines.push("Total: " + total.toFixed(2) + "h");
+
+    var text = lines.join("\n");
+    navigator.clipboard.writeText(text).then(function() {
+      showToast("Summary copied to clipboard");
+    }, function() {
+      showToast("Failed to copy");
+    });
+  }
+
+  // --- Event wiring ---
+
+  // Task grid: click to toggle, double-click to rename, remove button
+  document.getElementById("task-grid").addEventListener("click", function(e) {
+    // Remove button
+    var removeId = e.target.getAttribute("data-remove-id");
+    if (removeId) {
+      e.stopPropagation();
+      confirmRemoveTask(removeId);
+      return;
+    }
+
+    // Add button
+    if (e.target.id === "grid-add-task") {
+      promptAddTask();
+      return;
+    }
+
+    // Task button
+    var btn = e.target.closest(".task-btn");
+    if (btn && btn.dataset.taskId) {
+      toggleTimer(btn.dataset.taskId);
+    }
+  });
+
+  document.getElementById("task-grid").addEventListener("dblclick", function(e) {
+    var btn = e.target.closest(".task-btn");
+    if (btn && btn.dataset.taskId) {
+      e.preventDefault();
+      promptRenameTask(btn.dataset.taskId);
+    }
+  });
+
+  // Date navigation
+  document.getElementById("date-prev").addEventListener("click", function() {
+    selectedDate = shiftDate(selectedDate, -1);
+    render();
+  });
+
+  document.getElementById("date-next").addEventListener("click", function() {
+    selectedDate = shiftDate(selectedDate, 1);
+    render();
+  });
+
+  document.getElementById("date-today").addEventListener("click", function() {
+    selectedDate = todayStr();
+    render();
+  });
+
+  // Action bar
+  document.getElementById("btn-add-task").addEventListener("click", promptAddTask);
+  document.getElementById("btn-export-csv").addEventListener("click", exportCSV);
+  document.getElementById("btn-copy-summary").addEventListener("click", copySummary);
+
+  // --- Initialization ---
+
+  // Auto-recover running timer
+  var active = getActiveTimer();
+  if (active) {
+    startTimerDisplay();
+  }
+
+  // Update tally every second when timer is running (to show live hours)
+  setInterval(function() {
+    if (getActiveTimer()) {
+      renderTally();
+    }
+  }, 1000);
+
+  render();
+})();
+</script>
+</body>
+</html>
