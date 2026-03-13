@@ -1,0 +1,392 @@
+:root {
+  --bg: #1a1a2e;
+  --bg-surface: #222240;
+  --bg-elevated: #2a2a4a;
+  --text: #e0e0e0;
+  --text-muted: #8888aa;
+  --accent: #4fc3f7;
+  --accent-dim: #2a6f8f;
+  --active: #00e676;
+  --active-dim: #1b5e20;
+  --danger: #ef5350;
+  --border: #3a3a5c;
+  --radius: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.container {
+  width: 100%;
+  max-width: 640px;
+  padding: 16px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.date-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.date-nav button {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.date-nav button:hover { background: var(--border); }
+
+.date-nav .date-display {
+  font-size: 1rem;
+  color: var(--text);
+  min-width: 140px;
+  text-align: center;
+}
+
+.date-nav .today-btn {
+  width: auto;
+  padding: 0 12px;
+  font-size: 0.8rem;
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.date-nav .today-btn:hover { background: var(--accent-dim); }
+.date-nav .today-btn.hidden { visibility: hidden; }
+
+/* Running Timer Display */
+.timer-display {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  margin-bottom: 20px;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.timer-display.active {
+  border-color: var(--active-dim);
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.1);
+}
+
+.timer-display .timer-task {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.timer-display.active .timer-task { color: var(--active); }
+
+.timer-display .timer-time {
+  font-size: 2rem;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.timer-display .timer-idle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Task Grid */
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.task-btn {
+  position: relative;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 14px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+  word-break: break-word;
+}
+
+.task-btn:hover {
+  background: var(--border);
+}
+
+.task-btn.active {
+  background: var(--active-dim);
+  border-color: var(--active);
+  color: var(--active);
+  font-weight: 600;
+}
+
+.task-btn .task-remove {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.task-btn:hover .task-remove { opacity: 1; }
+.task-btn .task-remove:hover { color: var(--danger); }
+
+.task-btn-add {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+.task-btn-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: transparent;
+}
+
+/* Tally Table */
+.tally-section {
+  margin-bottom: 20px;
+}
+
+.tally-section h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.tally-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.tally-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.tally-table tr:last-child td { border-bottom: none; }
+
+.tally-table .task-name { color: var(--text); }
+
+.tally-table .task-hours {
+  text-align: right;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  cursor: help;
+}
+
+.tally-table .total-row td {
+  font-weight: 600;
+  border-top: 2px solid var(--border);
+  color: var(--accent);
+}
+
+.tally-table .total-row .task-name { color: var(--text); }
+
+.tally-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px;
+  font-size: 0.9rem;
+  background: var(--bg-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+/* Action Bar */
+.action-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.action-btn:hover { background: var(--border); }
+
+.action-btn.primary {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.action-btn.primary:hover { background: var(--accent-dim); }
+
+.action-bar-secondary {
+  margin-top: 8px;
+}
+
+/* CSV Export Panel */
+.csv-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  margin-top: 0;
+}
+
+.csv-panel.open {
+  max-height: 200px;
+  margin-top: 12px;
+}
+
+.csv-panel-inner {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.csv-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.csv-preset-btn {
+  flex: 1;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.csv-preset-btn:hover {
+  background: var(--border);
+}
+
+.csv-range {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.csv-range label {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.csv-range input[type="date"] {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 0.8rem;
+}
+
+.csv-download-btn {
+  align-self: flex-end;
+  flex: none;
+  min-width: auto;
+  padding: 8px 20px;
+}
+
+/* Inline rename input */
+.rename-input {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  width: 100%;
+  outline: none;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: transform 0.3s, opacity 0.3s;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
