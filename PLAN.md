@@ -92,7 +92,7 @@ Each stage is self-contained and ships working code. Tackle in order; revisit as
 - Stop timer (accidental stop)
 - Restore from backup (already auto-backups, but surface undo in UI)
 **Approach**: Store a single `undoStack` entry in memory (not localStorage). Show "Undo" in toast for 5 seconds after each undoable action.
-**Status**: Not Started
+**Status**: Complete — in-memory `undoStack`, 5-second undoable toasts with Undo button, `performUndo` handles remove-task / stop-timer / restore-backup; 7 new test cases in tests.html
 
 ---
 

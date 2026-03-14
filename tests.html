@@ -544,6 +544,111 @@ test("deleteEntry on empty list returns empty list", function() {
   assertEqual(result.length, 0);
 });
 
+// ─── Undo — pushUndo / clearUndo / performUndo logic ─────────────────────
+
+// In-memory undo stack (mirrors app.js IIFE-scoped vars)
+var _undoStack = null;
+
+function _pushUndo(action, data) {
+  _undoStack = { action: action, data: data };
+}
+
+function _clearUndo() {
+  _undoStack = null;
+}
+
+// Pure data transformation for remove-task undo
+function undoRemoveTask(tasks, entries, undoData) {
+  var newTasks = tasks.slice();
+  newTasks.splice(undoData.index, 0, undoData.task);
+  var newEntries = entries.slice();
+  undoData.entries.forEach(function(e) { newEntries.push(e); });
+  return { tasks: newTasks, entries: newEntries };
+}
+
+// Pure data transformation for stop-timer undo
+function undoStopTimer(entries, entryId) {
+  return entries.filter(function(e) { return e.id !== entryId; });
+}
+
+suite("Undo — pushUndo / clearUndo / performUndo logic");
+
+test("pushUndo stores action and data", function() {
+  _clearUndo();
+  _pushUndo("remove-task", { index: 2, task: { id: "t1", name: "Test" }, entries: [], activeTimer: null });
+  assert(_undoStack !== null, "undoStack should not be null after pushUndo");
+  assertEqual(_undoStack.action, "remove-task");
+  assertEqual(_undoStack.data.index, 2);
+  assertEqual(_undoStack.data.task.id, "t1");
+});
+
+test("clearUndo nullifies the stack", function() {
+  _pushUndo("stop-timer", { timer: {}, entryId: "abc" });
+  _clearUndo();
+  assert(_undoStack === null, "undoStack should be null after clearUndo");
+});
+
+test("each pushUndo overwrites the previous undo state", function() {
+  _pushUndo("stop-timer", { timer: {}, entryId: "first" });
+  _pushUndo("remove-task", { index: 0, task: { id: "t2" }, entries: [], activeTimer: null });
+  assertEqual(_undoStack.action, "remove-task");
+  assertEqual(_undoStack.data.task.id, "t2");
+});
+
+test("undo remove-task restores task at correct index", function() {
+  var originalTasks = [
+    { id: "t1", name: "Alpha" },
+    { id: "t3", name: "Gamma" }
+  ];
+  var removedTask = { id: "t2", name: "Beta" };
+  var undoData = { index: 1, task: removedTask, entries: [], activeTimer: null };
+
+  var result = undoRemoveTask(originalTasks, [], undoData);
+  assertEqual(result.tasks.length, 3);
+  assertEqual(result.tasks[0].id, "t1");
+  assertEqual(result.tasks[1].id, "t2");
+  assertEqual(result.tasks[2].id, "t3");
+});
+
+test("undo remove-task restores all task entries", function() {
+  var tasks = [{ id: "t1", name: "Alpha" }];
+  var existingEntries = [
+    { id: "e1", taskId: "t1", date: "2025-01-01", start: "2025-01-01T09:00:00Z", end: "2025-01-01T10:00:00Z" }
+  ];
+  var removedEntries = [
+    { id: "e2", taskId: "t2", date: "2025-01-02", start: "2025-01-02T09:00:00Z", end: "2025-01-02T10:00:00Z" },
+    { id: "e3", taskId: "t2", date: "2025-01-03", start: "2025-01-03T09:00:00Z", end: "2025-01-03T10:00:00Z" }
+  ];
+  var undoData = { index: 1, task: { id: "t2", name: "Beta" }, entries: removedEntries, activeTimer: null };
+
+  var result = undoRemoveTask(tasks, existingEntries, undoData);
+  assertEqual(result.entries.length, 3);
+  assertEqual(result.entries[1].id, "e2");
+  assertEqual(result.entries[2].id, "e3");
+});
+
+test("undo stop-timer removes the recorded entry by ID", function() {
+  var entries = [
+    { id: "e1", taskId: "t1", date: "2025-01-01", start: "2025-01-01T09:00:00Z", end: "2025-01-01T10:00:00Z" },
+    { id: "e2", taskId: "t1", date: "2025-01-01", start: "2025-01-01T11:00:00Z", end: "2025-01-01T12:00:00Z" },
+    { id: "e3", taskId: "t2", date: "2025-01-01", start: "2025-01-01T13:00:00Z", end: "2025-01-01T14:00:00Z" }
+  ];
+  var result = undoStopTimer(entries, "e2");
+  assertEqual(result.length, 2);
+  assert(result.every(function(e) { return e.id !== "e2"; }), "e2 should be removed");
+  assertEqual(result[0].id, "e1");
+  assertEqual(result[1].id, "e3");
+});
+
+test("undo stop-timer with unknown entry ID leaves entries intact", function() {
+  var entries = [
+    { id: "e1", taskId: "t1", date: "2025-01-01", start: "2025-01-01T09:00:00Z", end: "2025-01-01T10:00:00Z" }
+  ];
+  var result = undoStopTimer(entries, "nonexistent");
+  assertEqual(result.length, 1);
+  assertEqual(result[0].id, "e1");
+});
+
 // ─── Render results ───────────────────────────────────────────────────────
 
 var totalPass = 0, totalFail = 0;

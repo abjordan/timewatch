@@ -926,6 +926,26 @@ body {
 .toast.show {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
+  pointer-events: all;
+}
+
+.toast-undo-btn {
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  margin-left: 0.75rem;
+  padding: 0.1rem 0.5rem;
+  text-transform: uppercase;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.toast-undo-btn:hover {
+  opacity: 1;
 }
 
 /* ─── Focus styles ─── */

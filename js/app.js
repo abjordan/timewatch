@@ -88,15 +88,81 @@
   }
 
   var toastTimeout = null;
+  var undoStack = null; // { action: string, data: object }
 
-  function showToast(msg) {
+  function pushUndo(action, data) {
+    undoStack = { action: action, data: data };
+  }
+
+  function clearUndo() {
+    undoStack = null;
+  }
+
+  function performUndo() {
+    if (!undoStack) return;
+    var entry = undoStack;
+    clearUndo();
+    document.getElementById("toast").classList.remove("show");
+
+    if (entry.action === "remove-task") {
+      var tasks = getTasks();
+      tasks.splice(entry.data.index, 0, entry.data.task);
+      saveTasks(tasks);
+      var entries = getEntries();
+      entry.data.entries.forEach(function(e) { entries.push(e); });
+      saveEntries(entries);
+      if (entry.data.activeTimer) {
+        saveActiveTimer(entry.data.activeTimer);
+        startTimerDisplay();
+      }
+      render();
+      showToast("Task restored");
+
+    } else if (entry.action === "stop-timer") {
+      var timerEntries = getEntries().filter(function(e) { return e.id !== entry.data.entryId; });
+      saveEntries(timerEntries);
+      saveActiveTimer(entry.data.timer);
+      startTimerDisplay();
+      render();
+      showToast("Timer restored");
+
+    } else if (entry.action === "restore-backup") {
+      saveTasks(entry.data.tasks);
+      saveEntries(entry.data.entries);
+      saveActiveTimer(entry.data.activeTimer);
+      if (entry.data.activeTimer) {
+        startTimerDisplay();
+      } else {
+        stopTimerDisplay();
+      }
+      render();
+      showToast("Restore undone");
+    }
+  }
+
+  function showToast(msg, undoable) {
     var el = document.getElementById("toast");
-    el.textContent = msg;
+    el.innerHTML = "";
+    var msgSpan = document.createElement("span");
+    msgSpan.textContent = msg;
+    el.appendChild(msgSpan);
+
+    if (undoable && undoStack) {
+      var btn = document.createElement("button");
+      btn.className = "toast-undo-btn";
+      btn.textContent = "Undo";
+      btn.addEventListener("click", function() {
+        performUndo();
+      });
+      el.appendChild(btn);
+    }
+
     el.classList.add("show");
     clearTimeout(toastTimeout);
     toastTimeout = setTimeout(function() {
       el.classList.remove("show");
-    }, 2000);
+      clearUndo();
+    }, undoable ? 5000 : 2000);
   }
 
   // --- Data layer ---
@@ -314,10 +380,27 @@
     var active = getActiveTimer();
     if (!active) return;
     var now = new Date().toISOString();
-    recordEntry(active.taskId, active.start, now);
+    var entryId = uuid();
+
+    pushUndo("stop-timer", {
+      timer: active,
+      entryId: entryId
+    });
+
+    var entries = getEntries();
+    var start = new Date(active.start);
+    entries.push({
+      id: entryId,
+      taskId: active.taskId,
+      start: active.start,
+      end: now,
+      date: localDateStr(start)
+    });
+    saveEntries(entries);
     saveActiveTimer(null);
     stopTimerDisplay();
     render();
+    showToast("Timer stopped", true);
   }
 
   function toggleTimer(taskId) {
@@ -531,12 +614,31 @@
       danger: true
     }, function(confirmed) {
       if (confirmed) {
-        var active = getActiveTimer();
-        if (active && active.taskId === taskId) {
-          stopTimer();
+        var allTasks = getTasks();
+        var taskIndex = -1;
+        for (var i = 0; i < allTasks.length; i++) {
+          if (allTasks[i].id === taskId) { taskIndex = i; break; }
         }
+        var taskToRemove = findTask(taskId);
+        var removedEntries = getEntries().filter(function(e) { return e.taskId === taskId; });
+        var active = getActiveTimer();
+        var timerWasActive = (active && active.taskId === taskId) ? active : null;
+
+        if (timerWasActive) {
+          saveActiveTimer(null);
+          stopTimerDisplay();
+        }
+
+        pushUndo("remove-task", {
+          task: taskToRemove,
+          index: taskIndex,
+          entries: removedEntries,
+          activeTimer: timerWasActive
+        });
+
         removeTask(taskId);
         render();
+        showToast("Task removed", true);
       }
     });
   }
@@ -784,12 +886,16 @@
           showToast("Invalid backup file");
           return;
         }
-        backupData();
+        pushUndo("restore-backup", {
+          tasks: load(KEYS.tasks) || [],
+          entries: load(KEYS.entries) || [],
+          activeTimer: load(KEYS.activeTimer)
+        });
         save(KEYS.tasks, data.data.tasks);
         save(KEYS.entries, data.data.entries);
         save(KEYS.activeTimer, data.data.activeTimer || null);
         render();
-        showToast("Data restored successfully");
+        showToast("Data restored. Click Undo to revert.", true);
       } catch (err) {
         showToast("Failed to restore: invalid file");
       }
