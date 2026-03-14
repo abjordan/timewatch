@@ -2,6 +2,8 @@
 
 A minimal, offline time tracking webapp for allocating hours across clients and tasks. Runs entirely in the browser as a single HTML file — no build tools, frameworks, or dependencies.
 
+![TimeWatch screenshot](screenshots/timewatch.png)
+
 ## Features
 
 - **Toggle timer** — Click a task to start, click again to stop, click another to switch
