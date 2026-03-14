@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TimeWatch</title>
+<script>(function(){var t=localStorage.getItem("timewatch_theme");if(t)document.documentElement.setAttribute("data-theme",t);})()</script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -14,6 +15,13 @@
     <div class="wordmark">
       <span class="wordmark-glyph" aria-hidden="true">◉</span>
       <h1>TimeWatch</h1>
+      <div class="theme-picker" id="theme-picker" role="group" aria-label="Color theme">
+        <button class="theme-swatch" data-theme="amber" title="Amber" aria-label="Amber theme"></button>
+        <button class="theme-swatch" data-theme="ocean" title="Ocean" aria-label="Ocean theme"></button>
+        <button class="theme-swatch" data-theme="forest" title="Forest" aria-label="Forest theme"></button>
+        <button class="theme-swatch" data-theme="dusk" title="Dusk" aria-label="Dusk theme"></button>
+        <button class="theme-swatch" data-theme="mono" title="Mono" aria-label="Mono theme"></button>
+      </div>
     </div>
     <div class="date-nav">
       <button id="date-prev" title="Previous day" aria-label="Previous day">&#8592;</button>

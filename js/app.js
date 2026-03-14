@@ -19,7 +19,8 @@
   var KEYS = {
     tasks: "timewatch_tasks",
     entries: "timewatch_entries",
-    activeTimer: "timewatch_activeTimer"
+    activeTimer: "timewatch_activeTimer",
+    theme: "timewatch_theme"
   };
 
   function uuid() {
@@ -54,6 +55,24 @@
     var div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+  }
+
+  // --- Theme ---
+
+  function applyTheme(name) {
+    document.documentElement.setAttribute("data-theme", name);
+    save(KEYS.theme, name);
+    document.querySelectorAll(".theme-swatch").forEach(function(s) {
+      s.classList.toggle("active", s.dataset.theme === name);
+    });
+  }
+
+  function initTheme() {
+    var name = load(KEYS.theme) || "amber";
+    document.documentElement.setAttribute("data-theme", name);
+    document.querySelectorAll(".theme-swatch").forEach(function(s) {
+      s.classList.toggle("active", s.dataset.theme === name);
+    });
   }
 
   var toastTimeout = null;
@@ -730,6 +749,11 @@
     render();
   });
 
+  document.getElementById("theme-picker").addEventListener("click", function(e) {
+    var btn = e.target.closest(".theme-swatch");
+    if (btn && btn.dataset.theme) applyTheme(btn.dataset.theme);
+  });
+
   document.getElementById("btn-add-task").addEventListener("click", promptAddTask);
   document.getElementById("btn-add-time").addEventListener("click", openManualEntryModal);
   document.getElementById("manual-cancel").addEventListener("click", closeManualEntryModal);
@@ -753,6 +777,8 @@
   });
 
   // --- Initialization ---
+
+  initTheme();
 
   var active = getActiveTimer();
   if (active) {

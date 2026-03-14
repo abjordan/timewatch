@@ -145,10 +145,28 @@ Each stage is self-contained and ships working code. Tackle in order; revisit as
 
 ---
 
+## Stage 11: Color Themes
+**Goal**: Let users choose from a curated set of color themes, persisted across sessions.
+**Files**: `index.html`, `styles.css`, `js/app.js`
+**Approach**:
+- Define 4–6 themes as named sets of CSS custom property overrides (e.g. `data-theme="amber"` on `<html>`)
+- Themes to include: current Amber (default), Ocean (blue-teal), Forest (green), Dusk (purple), Monochrome (grey), and a high-contrast option
+- Add a small theme picker to the header — icon-only swatches, no labels needed
+- Store chosen theme in localStorage under `timewatch_theme`, apply on page load before first render to avoid flash
+- No new dependencies; pure CSS variable swap
+**Success Criteria**:
+- Switching themes is instant with no page reload
+- Choice persists across sessions and page refreshes
+- All UI elements (timer, task buttons, tally, modals, toasts) respond correctly to each theme
+- Picker itself is visually unobtrusive — doesn't compete with the date nav
+**Status**: Complete — 5 themes (Amber, Ocean, Forest, Dusk, Mono), swatch picker in header, flash-free init
+
+---
+
 ## Backlog (Deferred)
 
 - **Import from other tools** — CSV import for migration from Toggl, Harvest, etc.
 - **Task archiving** — Hide tasks without deleting their history
 - **Idle detection** — Auto-pause when system is idle (Page Visibility API)
-- **Light mode toggle** — CSS variable swap, store preference in localStorage
+- **Light mode toggle** — CSS variable swap, store preference in localStorage (superseded by Stage 11)
 - **PWA / offline install** — Service worker + manifest for installable app
