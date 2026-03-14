@@ -327,46 +327,119 @@
     renderTally();
   }
 
+  // --- Modal dialog system ---
+
+  function openModal(options, callback) {
+    var overlay     = document.getElementById("modal-overlay");
+    var titleEl     = document.getElementById("modal-title");
+    var messageEl   = document.getElementById("modal-message");
+    var inputEl     = document.getElementById("modal-input");
+    var confirmBtn  = document.getElementById("modal-confirm");
+    var cancelBtn   = document.getElementById("modal-cancel");
+
+    titleEl.textContent   = options.title   || "";
+    messageEl.textContent = options.message || "";
+    confirmBtn.textContent = options.confirmLabel || "OK";
+    confirmBtn.className = "action-btn " + (options.danger ? "danger" : "primary");
+
+    var isPrompt = options.type === "prompt";
+    inputEl.style.display = isPrompt ? "block" : "none";
+    if (isPrompt) {
+      inputEl.value = options.defaultValue || "";
+    }
+
+    overlay.classList.add("open");
+
+    if (isPrompt) {
+      inputEl.focus();
+      inputEl.select();
+    } else {
+      confirmBtn.focus();
+    }
+
+    function close(result) {
+      overlay.classList.remove("open");
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onOverlayClick);
+      document.removeEventListener("keydown", onKeydown);
+      callback(result);
+    }
+
+    function onConfirm() {
+      close(isPrompt ? inputEl.value : true);
+    }
+
+    function onCancel() {
+      close(null);
+    }
+
+    function onOverlayClick(e) {
+      if (e.target === overlay) close(null);
+    }
+
+    function onKeydown(e) {
+      if (e.key === "Escape") { e.preventDefault(); close(null); }
+      if (e.key === "Enter")  { e.preventDefault(); onConfirm(); }
+    }
+
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onOverlayClick);
+    document.addEventListener("keydown", onKeydown);
+  }
+
   // --- Task management UI ---
 
   function promptAddTask() {
-    var name = prompt("Task name:");
-    if (name && name.trim()) {
-      addTask(name);
-      render();
-    }
+    openModal({ type: "prompt", title: "New Task", message: "Task name:" }, function(name) {
+      if (name && name.trim()) {
+        addTask(name);
+        render();
+      }
+    });
   }
 
   function promptRenameTask(taskId) {
     var task = findTask(taskId);
     if (!task) return;
-    var name = prompt("Rename task:", task.name);
-    if (name && name.trim() && name.trim() !== task.name) {
-      renameTask(taskId, name);
-      render();
-    }
+    openModal({
+      type: "prompt",
+      title: "Rename Task",
+      message: "New name for \"" + task.name + "\":",
+      defaultValue: task.name
+    }, function(name) {
+      if (name && name.trim() && name.trim() !== task.name) {
+        renameTask(taskId, name);
+        render();
+      }
+    });
   }
 
   function confirmRemoveTask(taskId) {
     var task = findTask(taskId);
     if (!task) return;
-    if (confirm('Remove task "' + task.name + '"?\n\nHistorical entries will be kept.')) {
-      var active = getActiveTimer();
-      if (active && active.taskId === taskId) {
-        stopTimer();
+    openModal({
+      type: "confirm",
+      title: "Remove Task",
+      message: "Remove \"" + task.name + "\"? Historical entries will be kept.",
+      confirmLabel: "Remove",
+      danger: true
+    }, function(confirmed) {
+      if (confirmed) {
+        var active = getActiveTimer();
+        if (active && active.taskId === taskId) {
+          stopTimer();
+        }
+        removeTask(taskId);
+        render();
       }
-      removeTask(taskId);
-      render();
-    }
+    });
   }
 
   // --- Manual time entry ---
 
-  function addManualEntry(taskId, date, startISO, endISO) {
-    var entries = getEntries();
-    entries.push({ id: uuid(), taskId: taskId, start: startISO, end: endISO, date: date });
-    saveEntries(entries);
-  }
+  var manualModalKeyHandler = null;
 
   function openManualEntryModal() {
     var tasks = getTasks();
@@ -388,10 +461,20 @@
     document.getElementById("manual-end").value = "";
     document.getElementById("manual-entry-modal").classList.add("open");
     document.getElementById("manual-start").focus();
+
+    manualModalKeyHandler = function(e) {
+      if (e.key === "Escape") { e.preventDefault(); closeManualEntryModal(); }
+      if (e.key === "Enter")  { e.preventDefault(); submitManualEntry(); }
+    };
+    document.addEventListener("keydown", manualModalKeyHandler);
   }
 
   function closeManualEntryModal() {
     document.getElementById("manual-entry-modal").classList.remove("open");
+    if (manualModalKeyHandler) {
+      document.removeEventListener("keydown", manualModalKeyHandler);
+      manualModalKeyHandler = null;
+    }
   }
 
   function submitManualEntry() {
@@ -412,7 +495,7 @@
       return;
     }
 
-    addManualEntry(taskId, selectedDate, startISO, endISO);
+    recordEntry(taskId, startISO, endISO);
     closeManualEntryModal();
     render();
     showToast("Time entry added");
@@ -653,18 +736,6 @@
   document.getElementById("manual-submit").addEventListener("click", submitManualEntry);
   document.getElementById("manual-entry-modal").addEventListener("click", function(e) {
     if (e.target === document.getElementById("manual-entry-modal")) closeManualEntryModal();
-  });
-  document.getElementById("manual-task").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") submitManualEntry();
-    if (e.key === "Escape") closeManualEntryModal();
-  });
-  document.getElementById("manual-start").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") submitManualEntry();
-    if (e.key === "Escape") closeManualEntryModal();
-  });
-  document.getElementById("manual-end").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") submitManualEntry();
-    if (e.key === "Escape") closeManualEntryModal();
   });
   document.getElementById("btn-export-csv").addEventListener("click", toggleCSVPanel);
   document.getElementById("btn-copy-summary").addEventListener("click", copySummary);

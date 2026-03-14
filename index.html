@@ -7,16 +7,21 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div class="scanlines" aria-hidden="true"></div>
 <div class="container">
-  <div class="header">
-    <h1>TimeWatch</h1>
+
+  <header class="header">
+    <div class="wordmark">
+      <span class="wordmark-glyph" aria-hidden="true">◉</span>
+      <h1>TimeWatch</h1>
+    </div>
     <div class="date-nav">
-      <button id="date-prev" title="Previous day">&larr;</button>
+      <button id="date-prev" title="Previous day" aria-label="Previous day">&#8592;</button>
       <span class="date-display" id="date-display"></span>
-      <button id="date-next" title="Next day">&rarr;</button>
+      <button id="date-next" title="Next day" aria-label="Next day">&#8594;</button>
       <button class="today-btn" id="date-today" title="Go to today">Today</button>
     </div>
-  </div>
+  </header>
 
   <div class="timer-display" id="timer-display">
     <span class="timer-idle">Click a task to start tracking</span>
@@ -24,10 +29,10 @@
 
   <div class="task-grid" id="task-grid"></div>
 
-  <div class="tally-section">
+  <section class="tally-section">
     <h2>Time Summary</h2>
     <div id="tally-content"></div>
-  </div>
+  </section>
 
   <div class="action-bar">
     <button class="action-btn primary" id="btn-add-task">+ Add Task</button>
@@ -55,13 +60,26 @@
       <button class="action-btn primary csv-download-btn" id="btn-csv-download">Download</button>
     </div>
   </div>
+
+</div>
+
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <h3 class="modal-title" id="modal-title"></h3>
+    <p class="modal-message" id="modal-message"></p>
+    <input type="text" class="modal-input" id="modal-input" maxlength="60" autocomplete="off" spellcheck="false">
+    <div class="modal-actions">
+      <button class="action-btn" id="modal-cancel">Cancel</button>
+      <button class="action-btn primary" id="modal-confirm">OK</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<div class="modal-overlay" id="manual-entry-modal">
+<div class="modal-overlay" id="manual-entry-modal" role="dialog" aria-modal="true" aria-labelledby="manual-entry-title">
   <div class="modal">
-    <h2 class="modal-title">Add Time Entry</h2>
+    <h2 class="modal-title" id="manual-entry-title">Add Time Entry</h2>
     <div class="modal-field">
       <label for="manual-task">Task</label>
       <select id="manual-task"></select>
