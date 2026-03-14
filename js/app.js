@@ -61,6 +61,30 @@
     return localDateStr(d);
   }
 
+  function getWeekRange(dateStr) {
+    var d = parseLocalDate(dateStr);
+    var dow = d.getDay(); // 0=Sun
+    var diff = dow === 0 ? 6 : dow - 1; // days since Monday
+    var mon = new Date(d); mon.setDate(d.getDate() - diff);
+    var days = [];
+    for (var i = 0; i < 7; i++) {
+      var day = new Date(mon); day.setDate(mon.getDate() + i);
+      days.push(localDateStr(day));
+    }
+    return { start: days[0], end: days[6], days: days };
+  }
+
+  function getMonthRange(dateStr) {
+    var year = +dateStr.slice(0, 4);
+    var month = +dateStr.slice(5, 7) - 1;
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var days = [];
+    for (var i = 1; i <= daysInMonth; i++) {
+      days.push(year + "-" + String(month + 1).padStart(2, "0") + "-" + String(i).padStart(2, "0"));
+    }
+    return { start: days[0], end: days[days.length - 1], days: days };
+  }
+
   // --- UI utilities ---
 
   function escapeHTML(str) {
@@ -415,6 +439,7 @@
   // --- UI State ---
 
   var selectedDate = todayStr();
+  var viewMode = "day"; // "day" | "week" | "month"
 
   function isToday() {
     return selectedDate === todayStr();
@@ -446,7 +471,7 @@
     grid.innerHTML = html;
   }
 
-  function renderTally() {
+  function renderTallyDay() {
     var container = document.getElementById("tally-content");
     var entries = getEntriesForDate(selectedDate);
     var active = getActiveTimer();
@@ -500,6 +525,107 @@
       '</tr>';
 
     container.innerHTML = '<table class="tally-table">' + rows + '</table>';
+  }
+
+  function renderTallyWeekMonth(range) {
+    var container = document.getElementById("tally-content");
+    var allEntries = getEntriesForRange(range.start, range.end);
+    var tasks = getTasks();
+
+    // Build task -> day -> hours map
+    var taskDayHours = {}; // taskId -> { dayStr: hours }
+    var taskIds = [];
+
+    allEntries.forEach(function(e) {
+      if (!taskDayHours[e.taskId]) {
+        taskDayHours[e.taskId] = {};
+        taskIds.push(e.taskId);
+      }
+      if (!taskDayHours[e.taskId][e.date]) taskDayHours[e.taskId][e.date] = 0;
+      taskDayHours[e.taskId][e.date] += entryHours(e);
+    });
+
+    // Include active timer if it falls in the range
+    var active = getActiveTimer();
+    if (active) {
+      var activeDate = localDateStr(new Date(active.start));
+      if (activeDate >= range.start && activeDate <= range.end) {
+        if (!taskDayHours[active.taskId]) {
+          taskDayHours[active.taskId] = {};
+          taskIds.push(active.taskId);
+        }
+        if (!taskDayHours[active.taskId][activeDate]) taskDayHours[active.taskId][activeDate] = 0;
+        taskDayHours[active.taskId][activeDate] += (Date.now() - new Date(active.start).getTime()) / 3600000;
+      }
+    }
+
+    if (taskIds.length === 0) {
+      container.innerHTML = '<div class="tally-empty">No time entries for this period</div>';
+      return;
+    }
+
+    var days = range.days;
+    var DAY_ABBR = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+    // Header row
+    var headerCells = '<th class="task-name">Task</th>';
+    days.forEach(function(d) {
+      var date = parseLocalDate(d);
+      var label = viewMode === "week"
+        ? DAY_ABBR[date.getDay()] + " " + date.getDate()
+        : String(date.getDate());
+      var isToday = d === todayStr();
+      headerCells += '<th class="task-hours' + (isToday ? " today-col" : "") + '">' + label + '</th>';
+    });
+    headerCells += '<th class="task-hours">Total</th>';
+
+    var rows = '<tr>' + headerCells + '</tr>';
+
+    // Data rows
+    var dayTotals = {};
+    var grandTotal = 0;
+
+    taskIds.forEach(function(tid) {
+      var task = findTask(tid);
+      var name = task ? task.name : "Deleted task";
+      var rowTotal = 0;
+      var cells = '<td class="task-name">' + escapeHTML(name) + '</td>';
+      days.forEach(function(d) {
+        var h = taskDayHours[tid][d] || 0;
+        rowTotal += h;
+        if (!dayTotals[d]) dayTotals[d] = 0;
+        dayTotals[d] += h;
+        var isToday = d === todayStr();
+        cells += '<td class="task-hours' + (isToday ? " today-col" : "") + '">'
+          + (h > 0 ? h.toFixed(2) : '<span style="opacity:0.25">&#8212;</span>') + '</td>';
+      });
+      grandTotal += rowTotal;
+      cells += '<td class="task-hours">' + rowTotal.toFixed(2) + 'h</td>';
+      rows += '<tr>' + cells + '</tr>';
+    });
+
+    // Total row
+    var totalCells = '<td class="task-name">Total</td>';
+    days.forEach(function(d) {
+      var h = dayTotals[d] || 0;
+      var isToday = d === todayStr();
+      totalCells += '<td class="task-hours' + (isToday ? " today-col" : "") + '">'
+        + (h > 0 ? h.toFixed(2) : '<span style="opacity:0.25">&#8212;</span>') + '</td>';
+    });
+    totalCells += '<td class="task-hours">' + grandTotal.toFixed(2) + 'h</td>';
+    rows += '<tr class="total-row">' + totalCells + '</tr>';
+
+    container.innerHTML = '<div class="tally-scroll"><table class="tally-table">' + rows + '</table></div>';
+  }
+
+  function renderTally() {
+    if (viewMode === "week") {
+      renderTallyWeekMonth(getWeekRange(selectedDate));
+    } else if (viewMode === "month") {
+      renderTallyWeekMonth(getMonthRange(selectedDate));
+    } else {
+      renderTallyDay();
+    }
   }
 
   function renderDateNav() {
@@ -946,7 +1072,22 @@
 
   function toggleCSVPanel() {
     var panel = document.getElementById("csv-panel");
+    var isOpening = !panel.classList.contains("open");
     panel.classList.toggle("open");
+    if (isOpening) {
+      if (viewMode === "week") {
+        var wr = getWeekRange(selectedDate);
+        document.getElementById("csv-start").value = wr.start;
+        document.getElementById("csv-end").value = wr.end;
+      } else if (viewMode === "month") {
+        var mr = getMonthRange(selectedDate);
+        document.getElementById("csv-start").value = mr.start;
+        document.getElementById("csv-end").value = mr.end;
+      } else {
+        document.getElementById("csv-start").value = selectedDate;
+        document.getElementById("csv-end").value = selectedDate;
+      }
+    }
   }
 
   function setCSVPreset(preset) {
@@ -1065,6 +1206,18 @@
     if (editBtn && editBtn.dataset.entryId) {
       openEditEntryModal(editBtn.dataset.entryId);
     }
+  });
+
+  document.getElementById("view-toggle").addEventListener("click", function(e) {
+    var btn = e.target.closest(".view-toggle-btn");
+    if (!btn) return;
+    var newView = btn.dataset.view;
+    if (newView === viewMode) return;
+    viewMode = newView;
+    document.querySelectorAll(".view-toggle-btn").forEach(function(b) {
+      b.classList.toggle("active", b.dataset.view === viewMode);
+    });
+    renderTally();
   });
 
   document.getElementById("edit-entry-cancel").addEventListener("click", closeEditEntryModal);

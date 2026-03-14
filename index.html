@@ -38,7 +38,14 @@
   <div class="task-grid" id="task-grid" role="grid"></div>
 
   <section class="tally-section">
-    <h2>Time Summary</h2>
+    <div class="tally-header">
+      <h2>Time Summary</h2>
+      <div class="view-toggle" id="view-toggle" role="group" aria-label="View mode">
+        <button class="view-toggle-btn active" data-view="day">Day</button>
+        <button class="view-toggle-btn" data-view="week">Week</button>
+        <button class="view-toggle-btn" data-view="month">Month</button>
+      </div>
+    </div>
     <div id="tally-content"></div>
   </section>
 

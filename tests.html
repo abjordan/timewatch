@@ -649,6 +649,83 @@ test("undo stop-timer with unknown entry ID leaves entries intact", function() {
   assertEqual(result[0].id, "e1");
 });
 
+// ─── Week/Month range helpers ─────────────────────────────────────────────
+
+// Copied from app.js for testability (pure functions, no DOM/storage deps)
+
+function parseLocalDate_t(dateStr) {
+  var p = dateStr.split("-");
+  return new Date(+p[0], +p[1] - 1, +p[2]);
+}
+
+function localDateStr_range(date) {
+  var y = date.getFullYear();
+  var m = String(date.getMonth() + 1).padStart(2, "0");
+  var d = String(date.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + d;
+}
+
+function getWeekRange_t(dateStr) {
+  var d = parseLocalDate_t(dateStr);
+  var dow = d.getDay(); // 0=Sun
+  var diff = dow === 0 ? 6 : dow - 1;
+  var mon = new Date(d); mon.setDate(d.getDate() - diff);
+  var days = [];
+  for (var i = 0; i < 7; i++) {
+    var day = new Date(mon); day.setDate(mon.getDate() + i);
+    days.push(localDateStr_range(day));
+  }
+  return { start: days[0], end: days[6], days: days };
+}
+
+function getMonthRange_t(dateStr) {
+  var year = +dateStr.slice(0, 4);
+  var month = +dateStr.slice(5, 7) - 1;
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var days = [];
+  for (var i = 1; i <= daysInMonth; i++) {
+    days.push(year + "-" + String(month + 1).padStart(2, "0") + "-" + String(i).padStart(2, "0"));
+  }
+  return { start: days[0], end: days[days.length - 1], days: days };
+}
+
+suite("Week/Month range helpers");
+
+test("getWeekRange Wednesday: start is Monday, end is Sunday, 7 days", function() {
+  var r = getWeekRange_t("2026-03-11");
+  assertEqual(r.start, "2026-03-09");
+  assertEqual(r.end, "2026-03-15");
+  assertEqual(r.days.length, 7);
+});
+
+test("getWeekRange Monday: start is the same Monday", function() {
+  var r = getWeekRange_t("2026-03-09");
+  assertEqual(r.start, "2026-03-09");
+});
+
+test("getWeekRange Sunday: start is previous Monday, end is that Sunday", function() {
+  var r = getWeekRange_t("2026-03-15");
+  assertEqual(r.start, "2026-03-09");
+  assertEqual(r.end, "2026-03-15");
+});
+
+test("getMonthRange March 2026: start 2026-03-01, end 2026-03-31, 31 days", function() {
+  var r = getMonthRange_t("2026-03-13");
+  assertEqual(r.start, "2026-03-01");
+  assertEqual(r.end, "2026-03-31");
+  assertEqual(r.days.length, 31);
+});
+
+test("getMonthRange Feb 2026 (non-leap): 28 days", function() {
+  var r = getMonthRange_t("2026-02-01");
+  assertEqual(r.days.length, 28);
+});
+
+test("getMonthRange Feb 2024 (leap year): 29 days", function() {
+  var r = getMonthRange_t("2024-02-15");
+  assertEqual(r.days.length, 29);
+});
+
 // ─── Render results ───────────────────────────────────────────────────────
 
 var totalPass = 0, totalFail = 0;

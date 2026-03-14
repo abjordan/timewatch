@@ -527,13 +527,73 @@ body {
   margin-bottom: 20px;
 }
 
+.tally-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
 .tally-section h2 {
   font-size: 0.63rem;
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--text-dim);
-  margin-bottom: 8px;
   font-weight: 500;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius);
+  padding: 2px;
+}
+
+.view-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.2rem 0.6rem;
+  border-radius: calc(var(--radius) - 1px);
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, color 0.12s;
+}
+
+.view-toggle-btn.active {
+  color: var(--accent);
+  background: var(--bg-elevated);
+  font-weight: 600;
+}
+
+.view-toggle-btn:hover:not(.active) {
+  color: var(--text);
+}
+
+.tally-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tally-table th {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-mid);
+  text-align: right;
+}
+
+.tally-table th.task-name {
+  text-align: left;
+}
+
+.today-col {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .tally-table {

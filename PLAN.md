@@ -118,7 +118,7 @@ Each stage is self-contained and ships working code. Tackle in order; revisit as
 **Success Criteria**:
 - Summary table updates when switching view mode
 - CSV export respects current view's date range automatically
-**Status**: Not Started
+**Status**: Complete — Day/Week/Month toggle in tally header; `getWeekRange`/`getMonthRange` helpers; `renderTallyWeekMonth` aggregates by task with per-day columns and today highlight; CSV panel auto-fills range from current view; 6 new test cases in tests.html
 
 ---
 
