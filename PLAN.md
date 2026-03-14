@@ -64,7 +64,7 @@ Each stage is self-contained and ships working code. Tackle in order; revisit as
 - Duplicate task name warning (not hard block — same name may be intentional)
 - `recordEntry()`: validate start < end, both are valid ISO strings
 - `addTask()` / `renameTask()`: return false on invalid, surface error in UI
-**Status**: Not Started
+**Status**: Complete — `validateTaskName()` helper, `addTask`/`renameTask` validate + soft-warn on duplicate, `recordEntry` validates start < end
 
 ---
 
@@ -80,7 +80,7 @@ Each stage is self-contained and ships working code. Tackle in order; revisit as
 - Can fix a start/end time on a past entry
 - Can reassign an entry to a different task
 - Can delete a single entry without deleting the whole task
-**Status**: Not Started
+**Status**: Complete — per-entry tally rows with edit buttons, edit-entry modal with task/date/time fields, `updateEntry`/`deleteEntry` data functions, delete-with-confirmation flow
 
 ---
 
@@ -104,7 +104,7 @@ Each stage is self-contained and ships working code. Tackle in order; revisit as
 - `role="grid"` and `aria-pressed` on task buttons (toggle state)
 - Keyboard navigation between task buttons (arrow keys)
 - Focus outline visible in all themes
-**Status**: Not Started
+**Status**: Complete — ARIA labels on task-remove/add buttons, `role="gridcell"` + `aria-pressed` on task buttons, roving tabindex with arrow-key nav, `:focus-visible` outline uses `var(--accent)` across all themes
 
 ---
 
@@ -130,7 +130,7 @@ Each stage is self-contained and ships working code. Tackle in order; revisit as
 - Use `Intl.DateTimeFormat` for consistent local date formatting
 - Add a helper `localDateStr(date)` that always returns YYYY-MM-DD in local time
 - Fix `todayStr()` which uses `toISOString()` (UTC) instead of local time
-**Status**: Not Started
+**Status**: Complete — `localDateStr(date)` + `parseLocalDate(str)` helpers added; `todayStr`, `shiftDate`, `formatDateDisplay`, `recordEntry`, `renderTally`, `copySummary`, `setCSVPreset` all updated
 
 ---
 
@@ -141,7 +141,7 @@ Each stage is self-contained and ships working code. Tackle in order; revisit as
 - Listen for `storage` events (fires when another tab writes localStorage)
 - Re-render and reconcile active timer state on storage change
 - Show a toast if a conflicting active timer is detected
-**Status**: Not Started
+**Status**: Complete — `window.addEventListener("storage", ...)` re-renders and shows toasts for timer changes in other tabs
 
 ---
 

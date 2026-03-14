@@ -33,20 +33,32 @@
 
   // --- Date helpers ---
 
+  function localDateStr(date) {
+    var y = date.getFullYear();
+    var m = String(date.getMonth() + 1).padStart(2, "0");
+    var d = String(date.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  function parseLocalDate(dateStr) {
+    var p = dateStr.split("-");
+    return new Date(+p[0], +p[1] - 1, +p[2]);
+  }
+
   function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+    return localDateStr(new Date());
   }
 
   function formatDateDisplay(dateStr) {
-    var d = new Date(dateStr + "T12:00:00");
+    var d = parseLocalDate(dateStr);
     var opts = { weekday: "short", month: "short", day: "numeric" };
     return d.toLocaleDateString(undefined, opts);
   }
 
   function shiftDate(dateStr, days) {
-    var d = new Date(dateStr + "T12:00:00");
+    var d = parseLocalDate(dateStr);
     d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+    return localDateStr(d);
   }
 
   // --- UI utilities ---
@@ -113,23 +125,48 @@
     save(KEYS.activeTimer, timer);
   }
 
+  function validateTaskName(name) {
+    if (!name || !name.trim()) return "Task name cannot be blank";
+    if (name.trim().length > 60) return "Task name must be 60 characters or less";
+    return null;
+  }
+
   function addTask(name) {
+    var err = validateTaskName(name);
+    if (err) { showToast(err); return null; }
+    var trimmed = name.trim();
     var tasks = getTasks();
-    var task = { id: uuid(), name: name.trim(), createdAt: new Date().toISOString() };
+    for (var i = 0; i < tasks.length; i++) {
+      if (tasks[i].name.toLowerCase() === trimmed.toLowerCase()) {
+        showToast("A task named \u201c" + trimmed + "\u201d already exists");
+        break;
+      }
+    }
+    var task = { id: uuid(), name: trimmed, createdAt: new Date().toISOString() };
     tasks.push(task);
     saveTasks(tasks);
     return task;
   }
 
   function renameTask(taskId, newName) {
+    var err = validateTaskName(newName);
+    if (err) { showToast(err); return false; }
+    var trimmed = newName.trim();
     var tasks = getTasks();
     for (var i = 0; i < tasks.length; i++) {
-      if (tasks[i].id === taskId) {
-        tasks[i].name = newName.trim();
+      if (tasks[i].id !== taskId && tasks[i].name.toLowerCase() === trimmed.toLowerCase()) {
+        showToast("A task named \u201c" + trimmed + "\u201d already exists");
+        break;
+      }
+    }
+    for (var j = 0; j < tasks.length; j++) {
+      if (tasks[j].id === taskId) {
+        tasks[j].name = trimmed;
         break;
       }
     }
     saveTasks(tasks);
+    return true;
   }
 
   function removeTask(taskId) {
@@ -146,20 +183,56 @@
   }
 
   function recordEntry(taskId, startISO, endISO) {
+    var start = new Date(startISO);
+    var end = new Date(endISO);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      showToast("Invalid time entry: bad date format");
+      return false;
+    }
+    if (end <= start) {
+      showToast("End time must be after start time");
+      return false;
+    }
     var entries = getEntries();
-    var date = startISO.slice(0, 10);
     entries.push({
       id: uuid(),
       taskId: taskId,
       start: startISO,
       end: endISO,
-      date: date
+      date: localDateStr(start)
     });
     saveEntries(entries);
+    return true;
   }
 
   function getEntriesForDate(dateStr) {
     return getEntries().filter(function(e) { return e.date === dateStr; });
+  }
+
+  function updateEntry(entryId, taskId, startISO, endISO) {
+    var start = new Date(startISO);
+    var end = new Date(endISO);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+      showToast("End time must be after start time");
+      return false;
+    }
+    var entries = getEntries();
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].id === entryId) {
+        entries[i].taskId = taskId;
+        entries[i].start = startISO;
+        entries[i].end = endISO;
+        entries[i].date = localDateStr(start);
+        break;
+      }
+    }
+    saveEntries(entries);
+    return true;
+  }
+
+  function deleteEntry(entryId) {
+    var entries = getEntries().filter(function(e) { return e.id !== entryId; });
+    saveEntries(entries);
   }
 
   function entryHours(entry) {
@@ -275,14 +348,18 @@
     for (var i = 0; i < tasks.length; i++) {
       var t = tasks[i];
       var isActive = active && active.taskId === t.id;
+      var tabindex = i === 0 ? '0' : '-1';
       html += '<button class="task-btn' + (isActive ? " active" : "") + '" ' +
+              'role="gridcell" ' +
+              'aria-pressed="' + (isActive ? 'true' : 'false') + '" ' +
+              'tabindex="' + tabindex + '" ' +
               'data-task-id="' + t.id + '">' +
-              '<span class="task-remove" data-remove-id="' + t.id + '" title="Remove task">&times;</span>' +
+              '<span class="task-remove" role="button" tabindex="-1" data-remove-id="' + t.id + '" title="Remove task" aria-label="Remove task">&times;</span>' +
               escapeHTML(t.name) +
               '</button>';
     }
 
-    html += '<button class="task-btn task-btn-add" id="grid-add-task" title="Add task">+</button>';
+    html += '<button class="task-btn task-btn-add" id="grid-add-task" title="Add task" aria-label="Add task" tabindex="0">+</button>';
     grid.innerHTML = html;
   }
 
@@ -291,45 +368,53 @@
     var entries = getEntriesForDate(selectedDate);
     var active = getActiveTimer();
 
-    var taskHours = {};
-    var taskOrder = [];
+    var rows = "";
+    var total = 0;
 
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i];
-      if (!taskHours[e.taskId]) {
-        taskHours[e.taskId] = 0;
-        taskOrder.push(e.taskId);
-      }
-      taskHours[e.taskId] += entryHours(e);
+      var task = findTask(e.taskId);
+      var name = task ? task.name : "Deleted task";
+      var h = entryHours(e);
+      total += h;
+      var startDate = new Date(e.start);
+      var endDate = new Date(e.end);
+      var startStr = String(startDate.getHours()).padStart(2, "0") + ":" + String(startDate.getMinutes()).padStart(2, "0");
+      var endStr   = String(endDate.getHours()).padStart(2, "0") + ":" + String(endDate.getMinutes()).padStart(2, "0");
+      rows += '<tr>' +
+        '<td class="task-name">' + escapeHTML(name) + '</td>' +
+        '<td class="task-hours">' + startStr + '\u2013' + endStr + '</td>' +
+        '<td class="task-hours" title="' + hoursToHMS(h) + '">' + h.toFixed(2) + 'h</td>' +
+        '<td><button class="tally-edit-btn" data-entry-id="' + e.id + '" aria-label="Edit entry" title="Edit entry">\u270e</button></td>' +
+        '</tr>';
     }
 
-    if (active && active.start.slice(0, 10) === selectedDate) {
-      if (!taskHours[active.taskId]) {
-        taskHours[active.taskId] = 0;
-        taskOrder.push(active.taskId);
-      }
-      taskHours[active.taskId] += (Date.now() - new Date(active.start).getTime()) / 3600000;
+    if (active && localDateStr(new Date(active.start)) === selectedDate) {
+      var activeTask = findTask(active.taskId);
+      var activeName = activeTask ? activeTask.name : "Unknown";
+      var activeH = (Date.now() - new Date(active.start).getTime()) / 3600000;
+      total += activeH;
+      var activeStart = new Date(active.start);
+      var activeStartStr = String(activeStart.getHours()).padStart(2, "0") + ":" + String(activeStart.getMinutes()).padStart(2, "0");
+      rows += '<tr>' +
+        '<td class="task-name">' + escapeHTML(activeName) + ' <span style="opacity:0.5">(active)</span></td>' +
+        '<td class="task-hours">' + activeStartStr + '\u2013\u2026</td>' +
+        '<td class="task-hours">' + activeH.toFixed(2) + 'h</td>' +
+        '<td></td>' +
+        '</tr>';
     }
 
-    if (taskOrder.length === 0) {
+    if (!rows) {
       container.innerHTML = '<div class="tally-empty">No time entries for this day</div>';
       return;
     }
 
-    var total = 0;
-    var rows = "";
-    for (var j = 0; j < taskOrder.length; j++) {
-      var tid = taskOrder[j];
-      var task = findTask(tid);
-      var name = task ? task.name : "Deleted task";
-      var h = taskHours[tid];
-      total += h;
-      rows += '<tr><td class="task-name">' + escapeHTML(name) + '</td>' +
-              '<td class="task-hours" title="' + hoursToHMS(h) + '">' + h.toFixed(2) + 'h</td></tr>';
-    }
-
-    rows += '<tr class="total-row"><td class="task-name">Total</td>' +
-            '<td class="task-hours" title="' + hoursToHMS(total) + '">' + total.toFixed(2) + 'h</td></tr>';
+    rows += '<tr class="total-row">' +
+      '<td class="task-name">Total</td>' +
+      '<td class="task-hours"></td>' +
+      '<td class="task-hours" title="' + hoursToHMS(total) + '">' + total.toFixed(2) + 'h</td>' +
+      '<td></td>' +
+      '</tr>';
 
     container.innerHTML = '<table class="tally-table">' + rows + '</table>';
   }
@@ -496,6 +581,93 @@
     }
   }
 
+  var editEntryModalKeyHandler = null;
+  var currentEditEntryId = null;
+
+  function openEditEntryModal(entryId) {
+    var entries = getEntries();
+    var entry = null;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].id === entryId) { entry = entries[i]; break; }
+    }
+    if (!entry) return;
+
+    var tasks = getTasks();
+    var select = document.getElementById("edit-entry-task");
+    select.innerHTML = "";
+    for (var j = 0; j < tasks.length; j++) {
+      var opt = document.createElement("option");
+      opt.value = tasks[j].id;
+      opt.textContent = tasks[j].name;
+      if (tasks[j].id === entry.taskId) opt.selected = true;
+      select.appendChild(opt);
+    }
+
+    var startDate = new Date(entry.start);
+    var endDate = new Date(entry.end);
+    document.getElementById("edit-entry-date").value = entry.date;
+    document.getElementById("edit-entry-start").value =
+      String(startDate.getHours()).padStart(2, "0") + ":" + String(startDate.getMinutes()).padStart(2, "0");
+    document.getElementById("edit-entry-end").value =
+      String(endDate.getHours()).padStart(2, "0") + ":" + String(endDate.getMinutes()).padStart(2, "0");
+
+    currentEditEntryId = entryId;
+    document.getElementById("edit-entry-modal").classList.add("open");
+    document.getElementById("edit-entry-start").focus();
+
+    editEntryModalKeyHandler = function(e) {
+      if (e.key === "Escape") { e.preventDefault(); closeEditEntryModal(); }
+    };
+    document.addEventListener("keydown", editEntryModalKeyHandler);
+  }
+
+  function closeEditEntryModal() {
+    document.getElementById("edit-entry-modal").classList.remove("open");
+    currentEditEntryId = null;
+    if (editEntryModalKeyHandler) {
+      document.removeEventListener("keydown", editEntryModalKeyHandler);
+      editEntryModalKeyHandler = null;
+    }
+  }
+
+  function submitEditEntry() {
+    if (!currentEditEntryId) return;
+    var taskId = document.getElementById("edit-entry-task").value;
+    var dateVal = document.getElementById("edit-entry-date").value;
+    var startVal = document.getElementById("edit-entry-start").value;
+    var endVal = document.getElementById("edit-entry-end").value;
+
+    if (!dateVal || !startVal || !endVal) {
+      showToast("Fill in all fields");
+      return;
+    }
+
+    var startISO = new Date(dateVal + "T" + startVal + ":00").toISOString();
+    var endISO   = new Date(dateVal + "T" + endVal   + ":00").toISOString();
+
+    if (!updateEntry(currentEditEntryId, taskId, startISO, endISO)) return;
+    closeEditEntryModal();
+    render();
+    showToast("Entry updated");
+  }
+
+  function confirmDeleteEntry(entryId) {
+    closeEditEntryModal();
+    openModal({
+      type: "confirm",
+      title: "Delete Entry",
+      message: "Delete this time entry? This cannot be undone.",
+      confirmLabel: "Delete",
+      danger: true
+    }, function(confirmed) {
+      if (confirmed) {
+        deleteEntry(entryId);
+        render();
+        showToast("Entry deleted");
+      }
+    });
+  }
+
   function submitManualEntry() {
     var taskId = document.getElementById("manual-task").value;
     var startVal = document.getElementById("manual-start").value;
@@ -537,7 +709,7 @@
       taskHours[e.taskId] += entryHours(e);
     }
 
-    if (active && active.start.slice(0, 10) === selectedDate) {
+    if (active && localDateStr(new Date(active.start)) === selectedDate) {
       if (!taskHours[active.taskId]) {
         taskHours[active.taskId] = 0;
         taskOrder.push(active.taskId);
@@ -680,7 +852,7 @@
       startInput.value = today;
       endInput.value = today;
     } else if (preset === "week") {
-      var d = new Date(today + "T12:00:00");
+      var d = parseLocalDate(today);
       var day = d.getDay();
       var diff = day === 0 ? 6 : day - 1;
       startInput.value = shiftDate(today, -diff);
@@ -734,6 +906,34 @@
     }
   });
 
+  document.getElementById("task-grid").addEventListener("keydown", function(e) {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft" &&
+        e.key !== "ArrowDown"  && e.key !== "ArrowUp") return;
+
+    var taskBtns = Array.prototype.slice.call(
+      document.querySelectorAll("#task-grid .task-btn[data-task-id]")
+    );
+    if (taskBtns.length === 0) return;
+
+    var current = document.activeElement;
+    var idx = taskBtns.indexOf(current);
+    if (idx === -1) return;
+
+    e.preventDefault();
+
+    var next;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      next = taskBtns[(idx + 1) % taskBtns.length];
+    } else {
+      next = taskBtns[(idx - 1 + taskBtns.length) % taskBtns.length];
+    }
+
+    // Roving tabindex: move tabindex="0" to the newly focused button
+    taskBtns.forEach(function(btn) { btn.setAttribute("tabindex", "-1"); });
+    next.setAttribute("tabindex", "0");
+    next.focus();
+  });
+
   document.getElementById("date-prev").addEventListener("click", function() {
     selectedDate = shiftDate(selectedDate, -1);
     render();
@@ -752,6 +952,22 @@
   document.getElementById("theme-picker").addEventListener("click", function(e) {
     var btn = e.target.closest(".theme-swatch");
     if (btn && btn.dataset.theme) applyTheme(btn.dataset.theme);
+  });
+
+  document.getElementById("tally-content").addEventListener("click", function(e) {
+    var editBtn = e.target.closest(".tally-edit-btn");
+    if (editBtn && editBtn.dataset.entryId) {
+      openEditEntryModal(editBtn.dataset.entryId);
+    }
+  });
+
+  document.getElementById("edit-entry-cancel").addEventListener("click", closeEditEntryModal);
+  document.getElementById("edit-entry-save").addEventListener("click", submitEditEntry);
+  document.getElementById("edit-entry-delete").addEventListener("click", function() {
+    if (currentEditEntryId) confirmDeleteEntry(currentEditEntryId);
+  });
+  document.getElementById("edit-entry-modal").addEventListener("click", function(e) {
+    if (e.target === document.getElementById("edit-entry-modal")) closeEditEntryModal();
   });
 
   document.getElementById("btn-add-task").addEventListener("click", promptAddTask);
@@ -774,6 +990,32 @@
     btn.addEventListener("click", function() {
       setCSVPreset(btn.dataset.preset);
     });
+  });
+
+  // --- Multi-tab safety ---
+
+  window.addEventListener("storage", function(e) {
+    if (!e.key || e.key.indexOf("timewatch_") !== 0) return;
+    if (e.key === KEYS.theme) return;
+
+    if (e.key === KEYS.activeTimer) {
+      var hadTimer = e.oldValue && JSON.parse(e.oldValue);
+      var nowHasTimer = e.newValue && JSON.parse(e.newValue);
+      stopTimerDisplay();
+      if (nowHasTimer) {
+        startTimerDisplay();
+        if (hadTimer) {
+          showToast("Timer switched in another tab");
+        } else {
+          showToast("Timer started in another tab");
+        }
+      } else {
+        updateTimerDisplay();
+        if (hadTimer) showToast("Timer stopped in another tab");
+      }
+    }
+
+    render();
   });
 
   // --- Initialization ---

@@ -476,7 +476,8 @@ body {
   animation: blink-dot 1.4s ease-in-out infinite;
 }
 
-.task-btn .task-remove {
+.task-btn .task-remove,
+.task-btn button.task-remove {
   position: absolute;
   top: 5px;
   right: 5px;
@@ -494,6 +495,12 @@ body {
 
 .task-btn:hover .task-remove { opacity: 1; }
 .task-btn .task-remove:hover  { color: var(--danger); }
+
+.task-btn button.task-remove:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  opacity: 1;
+}
 
 .task-btn-add {
   background: transparent;
@@ -587,6 +594,21 @@ body {
   background: var(--bg-surface);
   border-radius: var(--radius);
   border: 1px solid var(--border-mid);
+}
+
+.tally-edit-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s;
+}
+.tally-edit-btn:hover {
+  opacity: 1;
+  color: var(--accent);
 }
 
 /* ─── Action Bars ─── */
@@ -825,7 +847,8 @@ body {
 }
 
 .modal-field select,
-.modal-field input[type="time"] {
+.modal-field input[type="time"],
+.modal-field input[type="date"] {
   background: var(--bg-input);
   border: 1px solid var(--border-hi);
   border-radius: var(--radius);
@@ -839,7 +862,8 @@ body {
 }
 
 .modal-field select:focus,
-.modal-field input[type="time"]:focus {
+.modal-field input[type="time"]:focus,
+.modal-field input[type="date"]:focus {
   border-color: var(--accent);
 }
 
@@ -907,6 +931,12 @@ body {
 /* ─── Focus styles ─── */
 
 :focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.task-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  z-index: 1;
 }

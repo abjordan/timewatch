@@ -431,6 +431,119 @@ test("entry spanning many hours is valid", function() {
 });
 
 
+// ─── Entry editing — updateEntry / deleteEntry logic ──────────────────────
+
+// Pure logic helpers replicated from app.js for testability
+
+function localDateStr_t(date) {
+  var y = date.getFullYear();
+  var m = String(date.getMonth() + 1).padStart(2, "0");
+  var d = String(date.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + d;
+}
+
+function updateEntryLogic(entries, entryId, taskId, startISO, endISO) {
+  var start = new Date(startISO);
+  var end = new Date(endISO);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+    return { ok: false, error: "End time must be after start time", entries: entries };
+  }
+  var updated = entries.map(function(e) { return Object.assign({}, e); });
+  for (var i = 0; i < updated.length; i++) {
+    if (updated[i].id === entryId) {
+      updated[i].taskId = taskId;
+      updated[i].start = startISO;
+      updated[i].end = endISO;
+      updated[i].date = localDateStr_t(start);
+      break;
+    }
+  }
+  return { ok: true, entries: updated };
+}
+
+function deleteEntryLogic(entries, entryId) {
+  return entries.filter(function(e) { return e.id !== entryId; });
+}
+
+suite("Entry editing — updateEntry / deleteEntry logic");
+
+test("updateEntry with valid times returns true and updates the entry", function() {
+  var entries = [
+    { id: "abc", taskId: "task1", start: "2025-03-10T09:00:00.000Z", end: "2025-03-10T10:00:00.000Z", date: "2025-03-10" },
+    { id: "def", taskId: "task2", start: "2025-03-10T11:00:00.000Z", end: "2025-03-10T12:00:00.000Z", date: "2025-03-10" }
+  ];
+  var newStart = "2025-03-10T08:30:00.000Z";
+  var newEnd   = "2025-03-10T09:45:00.000Z";
+  var result = updateEntryLogic(entries, "abc", "task2", newStart, newEnd);
+  assert(result.ok === true, "Should return ok: true for valid times");
+  var updated = result.entries[0];
+  assertEqual(updated.taskId, "task2");
+  assertEqual(updated.start, newStart);
+  assertEqual(updated.end, newEnd);
+});
+
+test("updateEntry with end <= start returns false and does not update", function() {
+  var entries = [
+    { id: "abc", taskId: "task1", start: "2025-03-10T09:00:00.000Z", end: "2025-03-10T10:00:00.000Z", date: "2025-03-10" }
+  ];
+  var result = updateEntryLogic(entries, "abc", "task1", "2025-03-10T10:00:00.000Z", "2025-03-10T09:00:00.000Z");
+  assert(result.ok === false, "Should return ok: false when end is before start");
+  assertEqual(result.entries[0].start, "2025-03-10T09:00:00.000Z");
+  assertEqual(result.entries[0].end, "2025-03-10T10:00:00.000Z");
+});
+
+test("updateEntry with equal start and end returns false", function() {
+  var entries = [
+    { id: "abc", taskId: "task1", start: "2025-03-10T09:00:00.000Z", end: "2025-03-10T10:00:00.000Z", date: "2025-03-10" }
+  ];
+  var result = updateEntryLogic(entries, "abc", "task1", "2025-03-10T09:00:00.000Z", "2025-03-10T09:00:00.000Z");
+  assert(result.ok === false, "Should return ok: false when start equals end");
+});
+
+test("deleteEntry removes the correct entry and leaves others intact", function() {
+  var entries = [
+    { id: "aaa", taskId: "task1", start: "2025-03-10T09:00:00.000Z", end: "2025-03-10T10:00:00.000Z", date: "2025-03-10" },
+    { id: "bbb", taskId: "task2", start: "2025-03-10T11:00:00.000Z", end: "2025-03-10T12:00:00.000Z", date: "2025-03-10" },
+    { id: "ccc", taskId: "task1", start: "2025-03-10T13:00:00.000Z", end: "2025-03-10T14:00:00.000Z", date: "2025-03-10" }
+  ];
+  var result = deleteEntryLogic(entries, "bbb");
+  assertEqual(result.length, 2);
+  assert(result.every(function(e) { return e.id !== "bbb"; }), "Deleted entry should not be in result");
+  assertEqual(result[0].id, "aaa");
+  assertEqual(result[1].id, "ccc");
+});
+
+test("deleteEntry with unknown id leaves all entries intact", function() {
+  var entries = [
+    { id: "aaa", taskId: "task1", start: "2025-03-10T09:00:00.000Z", end: "2025-03-10T10:00:00.000Z", date: "2025-03-10" }
+  ];
+  var result = deleteEntryLogic(entries, "nonexistent");
+  assertEqual(result.length, 1);
+  assertEqual(result[0].id, "aaa");
+});
+
+test("editing an entry changes its date field when the date changes", function() {
+  var entries = [
+    { id: "abc", taskId: "task1", start: "2025-03-10T09:00:00.000Z", end: "2025-03-10T10:00:00.000Z", date: "2025-03-10" }
+  ];
+  // Move entry to a different date by using local time construction
+  // Use a date+time that we know represents 2025-03-12 locally
+  var newDate = "2025-03-12";
+  var startISO = new Date(newDate + "T09:00:00").toISOString();
+  var endISO   = new Date(newDate + "T10:00:00").toISOString();
+  var result = updateEntryLogic(entries, "abc", "task1", startISO, endISO);
+  assert(result.ok === true, "Should succeed with valid new date/time");
+  var startLocal = new Date(result.entries[0].start);
+  var expectedDate = localDateStr_t(startLocal);
+  assertEqual(result.entries[0].date, expectedDate);
+  assert(result.entries[0].date !== "2025-03-10", "date field should reflect the new date, not the old one");
+});
+
+test("deleteEntry on empty list returns empty list", function() {
+  var result = deleteEntryLogic([], "abc");
+  assertEqual(result.length, 0);
+});
+
 // ─── Render results ───────────────────────────────────────────────────────
 
 var totalPass = 0, totalFail = 0;

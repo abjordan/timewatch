@@ -35,7 +35,7 @@
     <span class="timer-idle">Click a task to start tracking</span>
   </div>
 
-  <div class="task-grid" id="task-grid"></div>
+  <div class="task-grid" id="task-grid" role="grid"></div>
 
   <section class="tally-section">
     <h2>Time Summary</h2>
@@ -84,6 +84,35 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="edit-entry-modal" role="dialog" aria-modal="true" aria-labelledby="edit-entry-title">
+  <div class="modal">
+    <h2 class="modal-title" id="edit-entry-title">Edit Entry</h2>
+    <div class="modal-field">
+      <label for="edit-entry-task">Task</label>
+      <select id="edit-entry-task"></select>
+    </div>
+    <div class="modal-field">
+      <label for="edit-entry-date">Date</label>
+      <input type="date" id="edit-entry-date">
+    </div>
+    <div class="modal-field modal-row">
+      <div class="modal-time-group">
+        <label for="edit-entry-start">Start</label>
+        <input type="time" id="edit-entry-start">
+      </div>
+      <div class="modal-time-group">
+        <label for="edit-entry-end">End</label>
+        <input type="time" id="edit-entry-end">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="action-btn danger" id="edit-entry-delete">Delete</button>
+      <button class="action-btn" id="edit-entry-cancel">Cancel</button>
+      <button class="action-btn primary" id="edit-entry-save">Save</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="manual-entry-modal" role="dialog" aria-modal="true" aria-labelledby="manual-entry-title">
   <div class="modal">
