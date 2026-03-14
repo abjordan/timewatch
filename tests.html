@@ -375,6 +375,62 @@ test("empty string returns empty string", function() {
 });
 
 
+suite("submitManualEntry — validation logic");
+
+// Pure validation extracted from submitManualEntry for testability
+function validateManualEntry(date, startVal, endVal) {
+  if (!startVal || !endVal) return { ok: false, error: "missing" };
+  var startISO = new Date(date + "T" + startVal + ":00").toISOString();
+  var endISO   = new Date(date + "T" + endVal   + ":00").toISOString();
+  if (endISO <= startISO) return { ok: false, error: "end-before-start" };
+  return { ok: true, startISO: startISO, endISO: endISO };
+}
+
+test("missing start rejects", function() {
+  var r = validateManualEntry("2025-01-15", "", "10:00");
+  assertEqual(r.ok, false);
+  assertEqual(r.error, "missing");
+});
+
+test("missing end rejects", function() {
+  var r = validateManualEntry("2025-01-15", "09:00", "");
+  assertEqual(r.ok, false);
+  assertEqual(r.error, "missing");
+});
+
+test("end equal to start rejects", function() {
+  var r = validateManualEntry("2025-01-15", "09:00", "09:00");
+  assertEqual(r.ok, false);
+  assertEqual(r.error, "end-before-start");
+});
+
+test("end before start rejects", function() {
+  var r = validateManualEntry("2025-01-15", "10:00", "09:00");
+  assertEqual(r.ok, false);
+  assertEqual(r.error, "end-before-start");
+});
+
+test("valid entry returns ISO strings", function() {
+  var r = validateManualEntry("2025-01-15", "09:00", "10:30");
+  assertEqual(r.ok, true);
+  assert(typeof r.startISO === "string" && r.startISO.length > 0, "startISO should be set");
+  assert(typeof r.endISO   === "string" && r.endISO.length   > 0, "endISO should be set");
+  assert(r.endISO > r.startISO, "endISO should be after startISO");
+});
+
+test("1-minute entry is valid", function() {
+  var r = validateManualEntry("2025-06-01", "09:00", "09:01");
+  assertEqual(r.ok, true);
+});
+
+test("entry spanning many hours is valid", function() {
+  var r = validateManualEntry("2025-06-01", "08:00", "17:30");
+  assertEqual(r.ok, true);
+  var diffHours = (new Date(r.endISO) - new Date(r.startISO)) / 3600000;
+  assertEqual(Math.abs(diffHours - 9.5) < 0.001, true);
+});
+
+
 // ─── Render results ───────────────────────────────────────────────────────
 
 var totalPass = 0, totalFail = 0;

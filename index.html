@@ -36,6 +36,7 @@
 
   <div class="action-bar">
     <button class="action-btn primary" id="btn-add-task">+ Add Task</button>
+    <button class="action-btn primary" id="btn-add-time">+ Add Time</button>
     <button class="action-btn" id="btn-export-csv">Export CSV</button>
     <button class="action-btn" id="btn-copy-summary">Copy Summary</button>
   </div>
@@ -75,6 +76,31 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="manual-entry-modal" role="dialog" aria-modal="true" aria-labelledby="manual-entry-title">
+  <div class="modal">
+    <h2 class="modal-title" id="manual-entry-title">Add Time Entry</h2>
+    <div class="modal-field">
+      <label for="manual-task">Task</label>
+      <select id="manual-task"></select>
+    </div>
+    <div class="modal-field modal-row">
+      <div class="modal-time-group">
+        <label for="manual-start">Start</label>
+        <input type="time" id="manual-start">
+      </div>
+      <div class="modal-time-group">
+        <label for="manual-end">End</label>
+        <input type="time" id="manual-end">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="action-btn" id="manual-cancel">Cancel</button>
+      <button class="action-btn primary" id="manual-submit">Add Entry</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/app.js"></script>
 </body>
 </html>

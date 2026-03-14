@@ -437,6 +437,70 @@
     });
   }
 
+  // --- Manual time entry ---
+
+  var manualModalKeyHandler = null;
+
+  function openManualEntryModal() {
+    var tasks = getTasks();
+    if (tasks.length === 0) {
+      showToast("Add a task first");
+      return;
+    }
+
+    var select = document.getElementById("manual-task");
+    select.innerHTML = "";
+    for (var i = 0; i < tasks.length; i++) {
+      var opt = document.createElement("option");
+      opt.value = tasks[i].id;
+      opt.textContent = tasks[i].name;
+      select.appendChild(opt);
+    }
+
+    document.getElementById("manual-start").value = "";
+    document.getElementById("manual-end").value = "";
+    document.getElementById("manual-entry-modal").classList.add("open");
+    document.getElementById("manual-start").focus();
+
+    manualModalKeyHandler = function(e) {
+      if (e.key === "Escape") { e.preventDefault(); closeManualEntryModal(); }
+      if (e.key === "Enter")  { e.preventDefault(); submitManualEntry(); }
+    };
+    document.addEventListener("keydown", manualModalKeyHandler);
+  }
+
+  function closeManualEntryModal() {
+    document.getElementById("manual-entry-modal").classList.remove("open");
+    if (manualModalKeyHandler) {
+      document.removeEventListener("keydown", manualModalKeyHandler);
+      manualModalKeyHandler = null;
+    }
+  }
+
+  function submitManualEntry() {
+    var taskId = document.getElementById("manual-task").value;
+    var startVal = document.getElementById("manual-start").value;
+    var endVal = document.getElementById("manual-end").value;
+
+    if (!startVal || !endVal) {
+      showToast("Enter both start and end times");
+      return;
+    }
+
+    var startISO = new Date(selectedDate + "T" + startVal + ":00").toISOString();
+    var endISO = new Date(selectedDate + "T" + endVal + ":00").toISOString();
+
+    if (endISO <= startISO) {
+      showToast("End time must be after start time");
+      return;
+    }
+
+    recordEntry(taskId, startISO, endISO);
+    closeManualEntryModal();
+    render();
+    showToast("Time entry added");
+  }
+
   // --- Export: Copy Summary ---
 
   function copySummary() {
@@ -667,6 +731,12 @@
   });
 
   document.getElementById("btn-add-task").addEventListener("click", promptAddTask);
+  document.getElementById("btn-add-time").addEventListener("click", openManualEntryModal);
+  document.getElementById("manual-cancel").addEventListener("click", closeManualEntryModal);
+  document.getElementById("manual-submit").addEventListener("click", submitManualEntry);
+  document.getElementById("manual-entry-modal").addEventListener("click", function(e) {
+    if (e.target === document.getElementById("manual-entry-modal")) closeManualEntryModal();
+  });
   document.getElementById("btn-export-csv").addEventListener("click", toggleCSVPanel);
   document.getElementById("btn-copy-summary").addEventListener("click", copySummary);
   document.getElementById("btn-backup").addEventListener("click", backupData);

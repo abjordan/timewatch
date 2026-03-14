@@ -690,6 +690,53 @@ body {
   display: none;
 }
 
+/* Manual entry modal fields */
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modal-field label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+}
+
+.modal-field select,
+.modal-field input[type="time"] {
+  background: var(--bg-input);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.modal-field select:focus,
+.modal-field input[type="time"]:focus {
+  border-color: var(--accent);
+}
+
+.modal-row {
+  flex-direction: row;
+  gap: 12px;
+}
+
+.modal-time-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .modal-actions {
   display: flex;
   gap: 8px;
