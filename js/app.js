@@ -638,6 +638,7 @@
     renderDateNav();
     renderTaskGrid();
     renderTally();
+    renderSummaryPanel();
   }
 
   // --- Modal dialog system ---
@@ -973,6 +974,58 @@
     }, function() {
       showToast("Failed to copy");
     });
+  }
+
+  // --- Summary Panel ---
+
+  function renderSummaryPanel() {
+    var panel = document.getElementById("summary-panel");
+    var entries = getEntriesForDate(selectedDate);
+    var active = getActiveTimer();
+    var taskHours = {};
+    var taskOrder = [];
+
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!taskHours[e.taskId]) {
+        taskHours[e.taskId] = 0;
+        taskOrder.push(e.taskId);
+      }
+      taskHours[e.taskId] += entryHours(e);
+    }
+
+    if (active && localDateStr(new Date(active.start)) === selectedDate) {
+      if (!taskHours[active.taskId]) {
+        taskHours[active.taskId] = 0;
+        taskOrder.push(active.taskId);
+      }
+      taskHours[active.taskId] += (Date.now() - new Date(active.start).getTime()) / 3600000;
+    }
+
+    if (taskOrder.length === 0) {
+      panel.innerHTML = "";
+      return;
+    }
+
+    var total = 0;
+    var rows = "";
+    for (var j = 0; j < taskOrder.length; j++) {
+      var tid = taskOrder[j];
+      var task = findTask(tid);
+      var name = task ? task.name : "Deleted task";
+      var h = taskHours[tid];
+      total += h;
+      rows += "<tr><td>" + name + "</td><td>" + h.toFixed(2) + "h</td></tr>";
+    }
+
+    panel.innerHTML =
+      "<div class=\"summary-panel-inner\">" +
+        "<div class=\"summary-panel-header\">Day Summary</div>" +
+        "<table class=\"summary-table\">" +
+          "<tbody>" + rows + "</tbody>" +
+          "<tfoot><tr><td>Total</td><td>" + total.toFixed(2) + "h</td></tr></tfoot>" +
+        "</table>" +
+      "</div>";
   }
 
   // --- Export: JSON Backup & Restore ---
