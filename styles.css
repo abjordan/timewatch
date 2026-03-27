@@ -725,6 +725,61 @@ body {
   color: var(--text-muted);
 }
 
+/* ─── Summary Panel ─── */
+
+.summary-panel {
+  margin-top: 10px;
+}
+
+.summary-panel-inner {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.summary-panel-header {
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--text-dim);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.summary-table tbody tr td {
+  padding: 5px 0;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.summary-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.summary-table tfoot tr td {
+  padding-top: 8px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.summary-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.summary-table tfoot td:last-child {
+  color: var(--accent);
+}
+
 /* ─── CSV Panel ─── */
 
 .csv-panel {
